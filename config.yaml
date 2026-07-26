@@ -1,0 +1,222 @@
+# 宏观数据跟踪 — 指标体系配置 v3
+# 分类严格按NBER/中国宏观经济学标准
+# 领先(leading): 领先于经济周期, 预测未来趋势
+# 同步(coincident): 与经济周期同时变化, 确认当前状态
+# 滞后(lagging): 在经济周期之后变化, 确认趋势是否确立
+
+indicators:
+  leading:
+    # ── 货币/金融先行 ──
+    - id: m2_growth
+      name: M2货币供应增速
+      unit: "%"
+      source: 中国人民银行
+      frequency: 月度
+      description: 广义货币供应量同比, 流动性先于实体3-6个月
+      akshare_func: macro_china_money_supply
+
+    - id: social_financing
+      name: 新增人民币信贷
+      unit: 亿元
+      source: 中国人民银行
+      frequency: 月度
+      description: 信用扩张领先经济活动
+      akshare_func: macro_china_new_financial_credit
+
+    - id: shibor_overnight
+      name: 隔夜Shibor
+      unit: "%"
+      source: 全国银行间同业拆借中心
+      frequency: 每日
+      description: 银行间流动性最敏感的先行信号
+      akshare_func: macro_china_shibor_all
+
+    # ── 信心/预期先行 ──
+    - id: pmi_manufacturing
+      name: 制造业PMI
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 50荣枯线, 采购经理对未来的预期
+      akshare_func: macro_china_pmi
+
+    - id: consumer_confidence
+      name: 消费者信心指数
+      unit: 指数
+      source: 国家统计局
+      frequency: 月度
+      description: 消费者对未来收入和经济的展望
+      akshare_func: macro_china_xfzxx
+
+    # ── 资产价格/风险偏好先行 ──
+    - id: sh_index
+      name: 上证综合指数
+      unit: 点
+      source: 上交所
+      frequency: 每日
+      description: 股市领先实体经济约6个月
+      akshare_func: stock_zh_index_daily
+      akshare_params: { symbol: sh000001 }
+
+    - id: margin_sh
+      name: 沪市融资余额
+      unit: 亿元
+      source: 上交所
+      frequency: 每日
+      description: 杠杆资金反映市场风险偏好, 领先市场
+      akshare_func: macro_china_market_margin_sh
+
+    # ── 上游价格先行 ──
+    - id: commodity_price_index
+      name: 中证商品期货指数
+      unit: 指数
+      source: 中证指数公司
+      frequency: 每日
+      description: 大宗商品期货综合指数, 领先PPI 1-3个月
+      akshare_func: futures_index_ccidx
+
+    - id: new_house_price
+      name: 新建住宅价格指数
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 70城房价同比, 房地产周期领先信号
+      akshare_func: macro_china_new_house_price
+
+  coincident:
+    - id: industrial_production
+      name: 工业增加值增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 生产端核心同步指标
+      akshare_func: macro_china_industrial_production_yoy
+
+    - id: gdp_growth
+      name: GDP增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 季度
+      description: 最全面的经济总量同步指标
+      akshare_func: macro_china_gdp
+
+    - id: retail_sales
+      name: 社零总额增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 消费端核心同步指标
+      akshare_func: macro_china_consumer_goods_retail
+
+    - id: fixed_asset_investment
+      name: 固定资产投资增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 投资同步指标
+      akshare_func: macro_china_gdzctz
+
+    - id: electricity
+      name: 全社会用电量增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 电力消费与生产高度同步
+      akshare_func: macro_china_society_electricity
+
+    - id: exports_yoy
+      name: 出口增速
+      unit: "%"
+      source: 海关总署
+      frequency: 月度
+      description: 外需同步反映
+      akshare_func: macro_china_exports_yoy
+
+    - id: fiscal_revenue
+      name: 财政收入增速
+      unit: "%"
+      source: 财政部
+      frequency: 月度
+      description: 税收与经济周期同步
+      akshare_func: macro_china_czsr
+
+  lagging:
+    - id: cpi
+      name: CPI
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 消费价格滞后于需求变化
+      akshare_func: macro_china_cpi
+
+    - id: ppi
+      name: PPI
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 工业品出厂价格滞后于供需变化
+      akshare_func: macro_china_ppi
+
+    - id: unemployment
+      name: 城镇调查失业率
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 劳动力市场调整滞后于经济周期
+      akshare_func: macro_china_urban_unemployment
+
+    - id: trade_balance
+      name: 贸易差额
+      unit: 亿美元
+      source: 海关总署
+      frequency: 月度
+      description: 进出口调整滞后于经济变化
+      akshare_func: macro_china_trade_balance
+
+    - id: lpr
+      name: LPR 1年期
+      unit: "%"
+      source: 中国人民银行
+      frequency: 月度
+      description: 政策利率调整滞后于经济形势
+      akshare_func: macro_china_lpr
+
+    - id: real_estate_dev
+      name: 房地产投资增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 地产投资对政策响应有较长滞后
+      akshare_func: macro_china_real_estate
+
+    - id: fx_reserves
+      name: 外汇储备
+      unit: 亿美元
+      source: 中国人民银行
+      frequency: 月度
+      description: 国际收支累积结果, 滞后反映
+      akshare_func: macro_china_fx_reserves_yearly
+
+# 图表配置
+chart:
+  daily_display_points: 120
+  monthly_display_points: 60
+  quarterly_display_points: 40
+  ma_short: 3
+  ma_long: 6
+
+# 美林时钟参数
+merrill_lynch:
+  growth_indicators:
+    - industrial_production
+    - pmi_manufacturing
+    - gdp_growth
+  inflation_indicators:
+    - cpi
+    - ppi
+
+# 普林格周期参数
+pring:
+  bond_proxy: lpr
+  stock_proxy: sh_index
+  commodity_proxy: ppi

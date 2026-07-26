@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宏观经济数据跟踪面板</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0e14;--card-bg:rgba(13,17,23,0.82);--card-border:rgba(255,255,255,0.06);--cyan:#00d4ff;--magenta:#ff006e;--gold:#ffd700;--green:#00e676;--red:#ff3366;--gray:#667788;--text:#c8ccd4;--text-dim:#667788}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;line-height:1.5;overflow-x:hidden;min-height:100vh}
+#particleCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.scanlines{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.08) 0px,rgba(0,0,0,0.08) 1px,transparent 1px,transparent 3px)}
+.app-container{position:relative;z-index:2;max-width:1600px;margin:0 auto;padding:0 24px}
+.header{position:sticky;top:0;z-index:100;background:rgba(10,14,20,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(0,212,255,0.15);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header-left h1{font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--magenta));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:0.04em}
+.header-left .subtitle{font-size:0.78rem;color:var(--text-dim);margin-top:2px}
+.header-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+#liveClock{font-family:'Orbitron',sans-serif;font-size:1.1rem;color:var(--cyan);letter-spacing:0.06em}
+.cycle-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:0.78rem;font-weight:600;border:1px solid var(--magenta);color:var(--magenta);background:rgba(255,0,110,0.08)}
+.report-link{color:var(--cyan);text-decoration:none;font-size:0.78rem;padding:6px 14px;border:1px solid var(--cyan);border-radius:20px;transition:all 0.2s}
+.report-link:hover{background:rgba(0,212,255,0.1);box-shadow:0 0 12px rgba(0,212,255,0.2)}
+.sync-btn{background:rgba(0,212,255,0.1);color:var(--cyan);border:1px solid var(--cyan);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;font-family:inherit;transition:all 0.2s}
+.sync-btn:hover{background:rgba(0,212,255,0.25);box-shadow:0 0 12px rgba(0,212,255,0.3)}
+.sync-btn:disabled{opacity:0.5;cursor:not-allowed}
+.sync-btn.updating{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin:20px 0}
+@media(max-width:1200px){.kpi-row{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:768px){.kpi-row{grid-template-columns:repeat(2,1fr)}}
+.kpi-tile{background:var(--card-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--card-border);border-radius:12px;padding:18px 16px;position:relative;overflow:hidden;transition:all 0.25s}
+.kpi-tile:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,0.4),0 0 20px rgba(0,212,255,0.05)}
+.kpi-tile .kpi-label{font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px}
+.kpi-tile .kpi-value{font-family:'Orbitron',sans-serif;font-size:1.8rem;font-weight:700;letter-spacing:0.02em;line-height:1.2}
+.kpi-tile .kpi-sub{font-size:0.7rem;color:var(--text-dim);margin-top:4px}
+.kpi-tile .kpi-spark{margin-top:8px;width:100%;height:36px}
+.kpi-tile.accent-cyan .kpi-value{color:var(--cyan)}
+.kpi-tile.accent-gold .kpi-value{color:var(--gold)}
+.kpi-tile.accent-magenta .kpi-value{color:var(--magenta)}
+.kpi-tile.accent-green .kpi-value{color:var(--green)}
+.kpi-tile.accent-cyan{border-top:2px solid var(--cyan)}
+.kpi-tile.accent-gold{border-top:2px solid var(--gold)}
+.kpi-tile.accent-magenta{border-top:2px solid var(--magenta)}
+.kpi-tile.accent-green{border-top:2px solid var(--green)}
+.section-title{font-family:'Orbitron',sans-serif;font-size:0.95rem;font-weight:600;letter-spacing:0.04em;margin:28px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--card-border);color:var(--text)}
+.indicator-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+@media(max-width:1200px){.indicator-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.indicator-grid{grid-template-columns:1fr}}
+.indicator-col{background:var(--card-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:12px;overflow:hidden;border:1px solid var(--card-border)}
+.indicator-col .col-header{padding:12px 16px;font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:600;letter-spacing:0.04em;border-bottom:1px solid rgba(255,255,255,0.06)}
+.col-header.leading{color:var(--cyan);border-bottom-color:rgba(0,212,255,0.3)}
+.col-header.coincident{color:var(--gold);border-bottom-color:rgba(255,215,0,0.3)}
+.col-header.lagging{color:var(--magenta);border-bottom-color:rgba(255,0,110,0.3)}
+.ind-card{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;border-left:3px solid transparent}
+.ind-card:hover{background:rgba(255,255,255,0.03)}
+.ind-card.improving{border-left-color:var(--green)}
+.ind-card.deteriorating{border-left-color:var(--red)}
+.ind-card.stable{border-left-color:var(--gray)}
+.ind-card .ind-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.ind-card .ind-name{font-size:0.82rem;font-weight:600;color:#e0e4ea}
+.ind-card .ind-value{font-family:'Orbitron',sans-serif;font-size:1.05rem;font-weight:600;text-align:right}
+.ind-card .ind-meta{display:flex;justify-content:space-between;align-items:center;font-size:0.68rem;color:var(--text-dim)}
+.ind-card .ind-mom{display:inline-flex;align-items:center;gap:2px;font-weight:600;font-size:0.72rem}
+.ind-mom.up{color:var(--green)}.ind-mom.down{color:var(--red)}
+.ind-card .signal-badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:0.62rem;font-weight:600}
+.signal-badge.improving{background:rgba(0,230,118,0.15);color:var(--green)}
+.signal-badge.deteriorating{background:rgba(255,51,102,0.15);color:var(--red)}
+.signal-badge.stable{background:rgba(102,119,136,0.15);color:var(--gray)}
+.ind-card .ind-chart-wrap{max-height:0;overflow:hidden;transition:max-height 0.35s ease,margin-top 0.35s ease}
+.ind-card.expanded .ind-chart-wrap{max-height:200px;margin-top:8px}
+.ind-card .ind-mini-chart{width:100%;height:160px}
+.tabs-section{background:var(--card-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--card-border);border-radius:12px;margin-bottom:24px;overflow:hidden}
+.tab-nav{display:flex;border-bottom:1px solid var(--card-border);overflow-x:auto}
+.tab-btn{padding:12px 22px;font-size:0.82rem;font-weight:600;color:var(--text-dim);cursor:pointer;border:none;background:none;white-space:nowrap;transition:color 0.2s;font-family:inherit}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--cyan);border-bottom:2px solid var(--cyan)}
+.tab-panel{display:none;padding:20px}
+.tab-panel.active{display:block}
+.tab-chart{width:100%;height:520px}
+.checkbox-group{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.checkbox-group label{font-size:0.7rem;padding:4px 10px;border-radius:14px;border:1px solid rgba(255,255,255,0.12);cursor:pointer;user-select:none;transition:all 0.15s;color:var(--text-dim)}
+.checkbox-group label:hover{border-color:rgba(255,255,255,0.3)}
+.checkbox-group input{display:none}
+.checkbox-group label:has(input:checked){border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,0.08)}
+.decomp-select{padding:8px 14px;background:rgba(13,17,23,0.9);border:1px solid var(--card-border);border-radius:8px;color:var(--text);font-size:0.82rem;font-family:inherit;margin-bottom:16px;cursor:pointer;min-width:220px}
+.decomp-panels{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:900px){.decomp-panels{grid-template-columns:1fr}}
+.decomp-panel-card{background:rgba(13,17,23,0.6);border:1px solid var(--card-border);border-radius:10px;padding:14px}
+.decomp-panel-card h4{font-family:'Orbitron',sans-serif;font-size:0.75rem;letter-spacing:0.04em;margin-bottom:8px}
+.decomp-panel-card .decomp-chart{width:100%;height:280px}
+.cycle-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}
+@media(max-width:900px){.cycle-cards{grid-template-columns:1fr}}
+.cycle-card{background:var(--card-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--card-border);border-radius:12px;padding:20px}
+.cycle-card h3{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:600;letter-spacing:0.04em;margin-bottom:14px}
+.cycle-card .ml-info{margin-bottom:10px;font-size:0.82rem}
+.cycle-card .ml-info span{color:var(--text-dim)}
+.cycle-card .ml-quadrant{font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:700;color:var(--green)}
+.cycle-card .ml-allocation{margin-top:8px;font-size:0.75rem;padding:8px 12px;border-radius:8px;background:rgba(0,230,118,0.08);border-left:3px solid var(--green)}
+.cycle-card .pring-signals{display:flex;gap:10px;margin-top:8px}
+.pring-sig{flex:1;text-align:center;padding:10px 6px;border-radius:8px;border:1px solid var(--card-border);background:rgba(13,17,23,0.6)}
+.pring-sig .sig-label{font-size:0.65rem;color:var(--text-dim)}
+.pring-sig .sig-val{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:600;margin-top:4px}
+.pring-sig .sig-arrow{font-size:0.7rem;font-weight:700;margin-top:2px}
+.sig-arrow.up{color:var(--green)}.sig-arrow.down{color:var(--red)}.sig-arrow.stable{color:var(--gray)}
+.cycle-card .diag-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.8rem}
+.diag-row .diag-label{color:var(--text-dim)}
+.diag-row .diag-val{font-weight:600}
+.diag-val.up{color:var(--green)}.diag-val.down{color:var(--red)}.diag-val.stable{color:var(--gray)}
+.summary-stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.stat-chip{padding:4px 12px;border-radius:12px;font-size:0.7rem;font-weight:600;border:1px solid}
+.stat-chip.good{border-color:var(--green);color:var(--green);background:rgba(0,230,118,0.08)}
+.stat-chip.bad{border-color:var(--red);color:var(--red);background:rgba(255,51,102,0.08)}
+#heatmapChart{width:100%;height:550px}
+.footer{text-align:center;padding:24px 0;font-size:0.68rem;color:var(--text-dim);border-top:1px solid var(--card-border);margin-top:12px}
+.footer p{margin:4px 0}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.2)}
+</style>
+</head>
+<body>
+<canvas id="particleCanvas"></canvas>
+<div class="scanlines"></div>
+<div class="app-container">
+<header class="header"><div class="header-left"><h1>宏观经济数据跟踪面板</h1><div class="subtitle">中国宏观经济监测系统 · 领先/同步/滞后指标分析</div></div><div class="header-right"><div id="liveClock"></div><div class="cycle-badge" id="cycleBadge">--</div><button id="syncBtn" class="sync-btn" onclick="triggerUpdate()">同步更新</button><a href="cycle_report.html" class="report-link">周期报告</a></div></header>
+<div class="kpi-row" id="kpiRow"></div>
+<div class="section-title">领先 / 同步 / 滞后 指标矩阵</div>
+<div class="indicator-grid" id="indicatorGrid"></div>
+<div class="tabs-section">
+<div class="tab-nav"><button class="tab-btn active" data-tab="tab0">趋势对比</button><button class="tab-btn" data-tab="tab1">相关性热力图</button><button class="tab-btn" data-tab="tab2">综合领先指数</button><button class="tab-btn" data-tab="tab3">时序分解</button></div>
+<div class="tab-panel active" id="tab0"><div class="checkbox-group" id="trendCheckboxes"></div><div class="tab-chart" id="trendChart"></div></div>
+<div class="tab-panel" id="tab1"><div id="heatmapChart"></div></div>
+<div class="tab-panel" id="tab2"><div class="tab-chart" id="compositeChart"></div></div>
+<div class="tab-panel" id="tab3"><select class="decomp-select" id="decompSelect"></select><div class="decomp-panels"><div class="decomp-panel-card"><h4 style="color:var(--cyan);">趋势分量 Trend</h4><div class="decomp-chart" id="decompTrendChart"></div></div><div class="decomp-panel-card"><h4 style="color:var(--gold);">季节分量 Seasonal</h4><div class="decomp-chart" id="decompSeasonalChart"></div></div><div class="decomp-panel-card"><h4 style="color:var(--magenta);">残差分量 Residual</h4><div class="decomp-chart" id="decompResidualChart"></div></div></div></div>
+</div>
+<div class="section-title">周期分析总览</div>
+<div class="cycle-cards"><div class="cycle-card" id="merrillCard"></div><div class="cycle-card" id="pringCard"></div><div class="cycle-card" id="diagCard"></div></div>
+<footer class="footer"><p>数据来源：国家统计局 · 中国人民银行 · 海关总署 · 交通运输部 · 财政部 · 中国外汇交易中心 · 上交所 · 深交所</p><p>更新时间：<span id="updateTime">--</span> · 本面板仅供研究参考，不构成投资建议</p></footer>
+</div>
+<script>(function(){var c=document.getElementById('particleCanvas');var t=c.getContext('2d');var p=[];function rs(){c.width=window.innerWidth;c.height=window.innerHeight}rs();window.addEventListener('resize',rs);for(var i=0;i<60;i++){p.push({x:Math.random()*(c.width||window.innerWidth),y:Math.random()*(c.height||window.innerHeight),vx:(Math.random()-0.5)*0.4,vy:(Math.random()-0.5)*0.4,r:Math.random()*1.5+0.5,a:Math.random()*0.45+0.2})}function dr(){if(!c.width)c.width=window.innerWidth;if(!c.height)c.height=window.innerHeight;t.clearRect(0,0,c.width,c.height);for(var i=0;i<p.length;i++){var pt=p[i];pt.x+=pt.vx;pt.y+=pt.vy;if(pt.x<0)pt.x=c.width;if(pt.x>c.width)pt.x=0;if(pt.y<0)pt.y=c.height;if(pt.y>c.height)pt.y=0;t.beginPath();t.arc(pt.x,pt.y,pt.r,0,Math.PI*2);t.fillStyle='rgba(0,212,255,'+pt.a+')';t.fill()}for(var i=0;i<p.length;i++){for(var j=i+1;j<p.length;j++){var dx=p[i].x-p[j].x;var dy=p[i].y-p[j].y;var d=Math.sqrt(dx*dx+dy*dy);if(d<150){t.beginPath();t.moveTo(p[i].x,p[i].y);t.lineTo(p[j].x,p[j].y);t.strokeStyle='rgba(0,212,255,'+(0.06*(1-d/150))+')';t.lineWidth=0.5;t.stroke()}}}requestAnimationFrame(dr)}dr()})();</script>
+<script>
+var charts={};
+function fmtNum(v,d){if(v===null||v===undefined||isNaN(v))return'--';d=d===undefined?2:d;return Number(v).toFixed(d)}
+function signalCls(s){return s||'stable'}
+function momArrow(v){if(v===null||v===undefined||isNaN(v))return{cls:'stable',arrow:'→',sign:''};if(v>0)return{cls:'up',arrow:'▲',sign:'+'};if(v<0)return{cls:'down',arrow:'▼',sign:''};return{cls:'stable',arrow:'→',sign:''}}
+function formatDate(d){if(!d)return'--';return d.substring(0,7)}
+function sigLabel(s){if(s==='improving')return'改善';if(s==='deteriorating')return'恶化';return'稳定'}
+function dirLabel(d){if(d==='up')return'上升 ▲';if(d==='down')return'下降 ▼';return'稳定 →'}
+function drawSparkline(cv,data,color){if(!cv||!data||data.length<2)return;var dpr=window.devicePixelRatio||1;var w=cv.clientWidth||200;var h=cv.clientHeight||36;cv.width=w*dpr;cv.height=h*dpr;var ctx=cv.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);var min=Infinity,max=-Infinity;for(var i=0;i<data.length;i++){if(data[i]<min)min=data[i];if(data[i]>max)max=data[i]}var range=max-min||1;var px=2,py=3;var gw=w-px*2,gh=h-py*2;ctx.beginPath();ctx.strokeStyle=color||'#00d4ff';ctx.lineWidth=1.5;ctx.lineJoin='round';for(var i=0;i<data.length;i++){var x=px+(i/(data.length-1))*gw;var y=py+gh-((data[i]-min)/range)*gh;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.stroke();ctx.lineTo(px+gw,py+gh);ctx.lineTo(px,py+gh);ctx.closePath();var grad=ctx.createLinearGradient(0,py,0,py+gh);grad.addColorStop(0,(color||'#00d4ff')+'33');grad.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=grad;ctx.fill()}
+function darkTheme(extra){extra=extra||{};if(!extra.grid)extra.grid={left:'3%',right:'5%',top:45,bottom:35,containLabel:true};if(!extra.tooltip)extra.tooltip={trigger:'axis',backgroundColor:'rgba(10,14,20,0.94)',borderColor:'#333',textStyle:{color:'#ccc',fontSize:12}};if(!extra.xAxis)extra.xAxis={type:'category',axisLine:{lineStyle:{color:'#333'}},axisTick:{show:false},axisLabel:{color:'#667788',fontSize:10}};if(!extra.yAxis)extra.yAxis={type:'value',splitLine:{lineStyle:{color:'rgba(255,255,255,0.06)'}},axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#667788',fontSize:10}};extra.backgroundColor='transparent';return extra}
+function resizeAll(){Object.keys(charts).forEach(function(k){if(charts[k]&&charts[k].resize)charts[k].resize()})}
+function findIndById(id,D){var cats=['leading','coincident','lagging'];for(var c=0;c<cats.length;c++){var arr=D.indicators[cats[c]]||[];for(var i=0;i<arr.length;i++){if(arr[i].id===id)return arr[i]}}return null}
+function allIndicators(D){var all=[];['leading','coincident','lagging'].forEach(function(cat){(D.indicators[cat]||[]).forEach(function(ind){if(ind.ts_data&&ind.ts_data.length>0){all.push({id:ind.id,name:ind.name,category:cat,ts_data:ind.ts_data})}})});return all}
+function findInAll(all,id){for(var i=0;i<all.length;i++){if(all[i].id===id)return all[i]}return null}
+function overallScore(s){var sc=(s.leading_score||0)+(s.coincident_score||0)+(s.lagging_score||0);if(sc>3)return'偏强';if(sc>0)return'略强';if(sc>-3)return'中性';if(sc>-6)return'偏弱';return'弱势'}
+function sparkArr(D,key){if(!D.composite_indices||!D.composite_indices[key])return[];return D.composite_indices[key].map(function(d){return d.value})}
+function buildKpiRow(D){var s=D.summary||{};var ml=D.merrill_lynch||{};var pr=D.pring||{};function ws(v){if(v===null||v===undefined)return'--';return v>0?'+'+v:String(v)}var tiles=[{cls:'accent-cyan',label:'领先信号',value:ws(s.leading_score),sub:'改善 '+(s.leading_improving||0)+' / 恶化 '+(s.leading_deteriorating||0),data:sparkArr(D,'leading'),color:'#00d4ff'},{cls:'accent-gold',label:'同步信号',value:ws(s.coincident_score),sub:'改善 '+(s.coincident_improving||0)+' / 恶化 '+(s.coincident_deteriorating||0),data:sparkArr(D,'coincident'),color:'#ffd700'},{cls:'accent-magenta',label:'滞后信号',value:ws(s.lagging_score),sub:'改善 '+(s.lagging_improving||0)+' / 恶化 '+(s.lagging_deteriorating||0),data:sparkArr(D,'lagging'),color:'#ff006e'},{cls:'accent-green',label:'美林时钟',value:ml.quadrant?ml.quadrant.replace(/\(.*\)/,''):'--',sub:ml.asset_allocation||'',data:ml.trajectory?ml.trajectory.map(function(d){return Math.sqrt(d.x*d.x+d.y*d.y)}):[],color:'#00e676'},{cls:'accent-cyan',label:'普林格周期',value:pr.stage||'--',sub:(pr.bond_signal||'')+' / '+(pr.stock_signal||'')+' / '+(pr.commodity_signal||''),data:[],color:'#00d4ff'},{cls:'accent-gold',label:'综合评分',value:overallScore(s),sub:s.outlook?s.outlook.substring(0,24):'',data:[],color:'#ffd700'}];var html='';tiles.forEach(function(t,i){html+='<div class="kpi-tile '+t.cls+'"><div class="kpi-label">'+t.label+'</div><div class="kpi-value">'+t.value+'</div><div class="kpi-sub">'+t.sub+'</div><canvas class="kpi-spark" id="spark'+i+'"></canvas></div>'});document.getElementById('kpiRow').innerHTML=html;setTimeout(function(){tiles.forEach(function(t,i){if(t.data&&t.data.length>1)drawSparkline(document.getElementById('spark'+i),t.data,t.color)})},200)}
+function buildIndicatorGrid(D){var cols=[{key:'leading',title:'领先指标 Leading',cls:'leading'},{key:'coincident',title:'同步指标 Coincident',cls:'coincident'},{key:'lagging',title:'滞后指标 Lagging',cls:'lagging'}];var html='';cols.forEach(function(col){html+='<div class="indicator-col"><div class="col-header '+col.cls+'">'+col.title+'</div>';var inds=D.indicators[col.key]||[];inds.forEach(function(ind){var sc=signalCls(ind.signal);var mom=momArrow(ind.mom_change);html+='<div class="ind-card '+sc+'" data-id="'+ind.id+'">';html+='<div class="ind-top"><div class="ind-name">'+ind.name+'</div><div class="ind-value">'+fmtNum(ind.latest_value,2)+'<span style="font-size:0.65rem;color:#667788;"> '+(ind.unit||'')+'</span></div></div>';html+='<div class="ind-meta"><span>'+(ind.source||'')+' · '+formatDate(ind.latest_date)+'</span><span style="display:flex;align-items:center;gap:6px;"><span class="signal-badge '+sc+'">'+sigLabel(ind.signal)+'</span><span class="ind-mom '+mom.cls+'">'+mom.arrow+' '+mom.sign+fmtNum(ind.mom_change,2)+'</span></span></div>';html+='<div class="ind-chart-wrap"><div class="ind-mini-chart" id="mini_'+ind.id+'"></div></div></div>'});html+='</div>'});document.getElementById('indicatorGrid').innerHTML=html;document.querySelectorAll('.ind-card').forEach(function(card){card.addEventListener('click',function(){var was=card.classList.contains('expanded');document.querySelectorAll('.ind-card.expanded').forEach(function(c){c.classList.remove('expanded')});if(!was){card.classList.add('expanded');renderMiniChart(card.getAttribute('data-id'),D)}})})}
+function renderMiniChart(id,D){var el=document.getElementById('mini_'+id);if(!el)return;var ind=findIndById(id,D);if(!ind||!ind.ts_data)return;var dates=ind.ts_data.map(function(d){return d.date.substring(0,7)});var vals=ind.ts_data.map(function(d){return d.value});if(charts['mini_'+id])charts['mini_'+id].dispose();var chart=echarts.init(el);charts['mini_'+id]=chart;var lc=ind.signal==='improving'?'#00e676':ind.signal==='deteriorating'?'#ff3366':'#667788';var at=ind.signal==='improving'?'rgba(0,230,118,0.25)':ind.signal==='deteriorating'?'rgba(255,51,102,0.25)':'rgba(102,119,136,0.15)';var mlOpt=undefined;if(ind.ma_long!=null){mlOpt={silent:true,symbol:'none',lineStyle:{color:'#444',type:'dashed',width:1},data:[{yAxis:ind.ma_long,label:{show:false}}]}}chart.setOption(darkTheme({grid:{left:3,right:8,top:8,bottom:5,containLabel:true},xAxis:{type:'category',data:dates,show:false},yAxis:{type:'value',show:false,scale:true},series:[{type:'line',data:vals,smooth:true,lineStyle:{color:lc,width:1.5},areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:at},{offset:1,color:'rgba(0,0,0,0)'}])},showSymbol:false,symbolSize:0,markLine:mlOpt}],tooltip:{trigger:'axis'}}))}
+function buildTrendTab(D){var all=allIndicators(D);var cbHtml='';all.forEach(function(ind,i){var ch=i<6?' checked':'';cbHtml+='<label><input type="checkbox" value="'+ind.id+'"'+ch+'><span>'+ind.name+'</span></label>'});document.getElementById('trendCheckboxes').innerHTML=cbHtml;function renderTrend(){var checked=[];document.querySelectorAll('#trendCheckboxes input:checked').forEach(function(cb){checked.push(cb.value)});var el=document.getElementById('trendChart');if(charts.trend)charts.trend.dispose();var chart=echarts.init(el);charts.trend=chart;var series=[],legendData=[];checked.forEach(function(id){var ind=findInAll(all,id);if(!ind)return;var vals=ind.ts_data.map(function(d){return d.value});var valid=vals.filter(function(v){return v!=null});var mean=valid.reduce(function(a,b){return a+b},0)/valid.length;var variance=valid.reduce(function(a,b){return a+Math.pow(b-mean,2)},0)/valid.length;var std=Math.sqrt(variance)||1;var zData=vals.map(function(v){return v!=null?+((v-mean)/std).toFixed(4):null});legendData.push(ind.name);series.push({name:ind.name,type:'line',data:zData,smooth:true,showSymbol:false,symbolSize:0,lineStyle:{width:1.8},emphasis:{focus:'series',blurScope:'coordinateSystem'}})});var dates=all.length>0?all[0].ts_data.map(function(d){return d.date.substring(0,7)}):[];chart.setOption(darkTheme({title:{text:'指标趋势对比 (Z-Score 标准化)',textStyle:{color:'#8899aa',fontSize:13,fontWeight:'normal'},left:'center',top:0},legend:{data:legendData,type:'scroll',bottom:35,textStyle:{color:'#8899aa',fontSize:10},pageTextStyle:{color:'#8899aa'}},grid:{left:'3%',right:'4%',top:55,bottom:70,containLabel:true},xAxis:{type:'category',data:dates,axisLabel:{rotate:45,fontSize:9,color:'#667788'}},yAxis:{type:'value',name:'Z-Score (标准差)',nameTextStyle:{color:'#667788'}},series:series,tooltip:{trigger:'axis'},dataZoom:[{type:'inside'},{type:'slider',bottom:35,height:18,borderColor:'#333',backgroundColor:'rgba(13,17,23,0.8)',dataBackground:{lineStyle:{color:'#444'},areaStyle:{color:'rgba(0,212,255,0.1)'}},selectedDataBackground:{lineStyle:{color:'#00d4ff'},areaStyle:{color:'rgba(0,212,255,0.15)'}},textStyle:{color:'#667788'}}]}))}renderTrend();document.getElementById('trendCheckboxes').addEventListener('change',renderTrend)}
+function buildHeatmap(D){if(!D.correlation_matrix)return;var inds=D.correlation_matrix.indicators||[];var mat=D.correlation_matrix.matrix||[];var names=inds.map(function(id){var f=findIndById(id,D);return f?f.name:id});var hmData=[];for(var i=0;i<inds.length;i++){for(var j=0;j<inds.length;j++){var v=mat[i]&&mat[i][j]!==null?mat[i][j]:0;hmData.push([j,i,Number(v.toFixed(3))])}}var el=document.getElementById('heatmapChart');if(charts.heatmap)charts.heatmap.dispose();var chart=echarts.init(el);charts.heatmap=chart;chart.setOption(darkTheme({title:{text:'指标相关性热力图',textStyle:{color:'#8899aa',fontSize:13,fontWeight:'normal'},left:'center',top:0},grid:{left:130,right:50,top:35,bottom:110,containLabel:true},xAxis:{type:'category',data:names,position:'bottom',axisLabel:{rotate:45,fontSize:9,color:'#8899aa'},splitArea:{show:true}},yAxis:{type:'category',data:names,axisLabel:{fontSize:9,color:'#8899aa'},splitArea:{show:true}},visualMap:{min:-1,max:1,calculable:true,orient:'horizontal',left:'center',bottom:10,inRange:{color:['#0055cc','#112244','#1a1a2e','#441122','#cc0033']},text:['1','-1'],textStyle:{color:'#8899aa'}},series:[{type:'heatmap',data:hmData,label:{show:false},emphasis:{itemStyle:{shadowBlur:10,shadowColor:'rgba(0,0,0,0.5)'}}}],tooltip:{formatter:function(p){return names[p.value[1]]+' — '+names[p.value[0]]+'<br/>相关系数: '+p.value[2].toFixed(3)}}}))}
+function buildComposite(D){if(!D.composite_indices)return;var el=document.getElementById('compositeChart');if(charts.composite)charts.composite.dispose();var chart=echarts.init(el);charts.composite=chart;var series=[],legends=[];var colors={leading:'#00d4ff',coincident:'#ffd700',lagging:'#ff006e'};var labels={leading:'领先指数',coincident:'同步指数',lagging:'滞后指数'};['leading','coincident','lagging'].forEach(function(key){var arr=D.composite_indices[key];if(!arr||!arr.length)return;legends.push(labels[key]);var c=colors[key];series.push({name:labels[key],type:'line',data:arr.map(function(d){return[d.date,d.value]}),smooth:true,showSymbol:false,symbolSize:0,lineStyle:{color:c,width:2},areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:c+'33'},{offset:1,color:'rgba(0,0,0,0)'}])}})});chart.setOption(darkTheme({title:{text:'综合领先/同步/滞后指数',textStyle:{color:'#8899aa',fontSize:13,fontWeight:'normal'},left:'center',top:0},legend:{data:legends,bottom:35,textStyle:{color:'#8899aa'}},grid:{left:'3%',right:'4%',top:55,bottom:65,containLabel:true},xAxis:{type:'time',axisLabel:{fontSize:10,color:'#667788'}},yAxis:{type:'value',name:'标准化指数',nameTextStyle:{color:'#667788'}},series:series,tooltip:{trigger:'axis'},dataZoom:[{type:'inside'},{type:'slider',bottom:35,height:18,borderColor:'#333',backgroundColor:'rgba(13,17,23,0.8)',dataBackground:{lineStyle:{color:'#444'},areaStyle:{color:'rgba(0,212,255,0.1)'}},textStyle:{color:'#667788'}}]}))}
+function buildDecomp(D){if(!D.decomposition)return;var ids=Object.keys(D.decomposition);var sel=document.getElementById('decompSelect');var nameMap={};['leading','coincident','lagging'].forEach(function(c){(D.indicators[c]||[]).forEach(function(ind){nameMap[ind.id]=ind.name})});sel.innerHTML=ids.map(function(id){return'<option value="'+id+'">'+(nameMap[id]||id)+'</option>'}).join('');function renderDecomp(id){var dec=D.decomposition[id];if(!dec)return;function makeOpt(color,dk){var arr=dec[dk]||[];return darkTheme({grid:{left:3,right:8,top:25,bottom:5,containLabel:true},xAxis:{type:'category',data:arr.map(function(d){return d.date?d.date.substring(0,7):''}),show:false},yAxis:{type:'value',show:false,scale:true},series:[{type:'line',data:arr.map(function(d){return d.value}),smooth:true,showSymbol:false,symbolSize:0,lineStyle:{color:color,width:1.5},areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:color+'33'},{offset:1,color:'rgba(0,0,0,0)'}])}}],tooltip:{trigger:'axis'}})}['decompTrend','decompSeasonal','decompResidual'].forEach(function(cid){var el2=document.getElementById(cid+'Chart');if(charts[cid])charts[cid].dispose();charts[cid]=echarts.init(el2)});charts.decompTrend.setOption(makeOpt('#00d4ff','trend'));charts.decompSeasonal.setOption(makeOpt('#ffd700','seasonal'));charts.decompResidual.setOption(makeOpt('#ff006e','residual'))}sel.addEventListener('change',function(){renderDecomp(this.value)});if(ids.length>0)renderDecomp(ids[0])}
+function buildCycleCards(D){var ml=D.merrill_lynch||{};var mh='<h3 style="color:#00e676;">美林时钟 Merrill Lynch Clock</h3>';mh+='<div class="ml-info"><span>象限：</span><span class="ml-quadrant">'+(ml.quadrant||'--')+'</span></div>';mh+='<div class="ml-info"><span>增长 X：</span>'+fmtNum(ml.x,3)+' · <span>通胀 Y：</span>'+fmtNum(ml.y,3)+'</div>';mh+='<div class="ml-allocation">'+(ml.advice||'--')+'</div>';mh+='<div class="ml-info" style="margin-top:10px;"><span>资产配置：</span>'+(ml.asset_allocation||'--')+'</div>';document.getElementById('merrillCard').innerHTML=mh;var pr=D.pring||{};var ph='<h3 style="color:#00d4ff;">普林格周期 Pring Cycle</h3>';ph+='<div class="ml-info"><span>阶段：</span><strong>'+(pr.stage||'--')+'</strong></div>';ph+='<div class="ml-info" style="font-size:0.75rem;color:#8899aa;">'+(pr.description||'')+'</div>';ph+='<div class="pring-signals">';function ps(l,s,i,v){var sc2=s||'stable';var ar=sc2==='up'?'▲':sc2==='down'?'▼':'→';var tx=sc2==='up'?'看多':sc2==='down'?'看空':'中性';return'<div class="pring-sig"><div class="sig-label">'+l+' ('+(i||'')+')</div><div class="sig-val">'+fmtNum(v,2)+'</div><div class="sig-arrow '+sc2+'">'+ar+' '+tx+'</div></div>'}ph+=ps('债券',pr.bond_signal,pr.bond_indicator,pr.bond_proxy_value);ph+=ps('股票',pr.stock_signal,pr.stock_indicator,pr.stock_proxy_value);ph+=ps('商品',pr.commodity_signal,pr.commodity_indicator,pr.commodity_proxy_value);ph+='</div>';document.getElementById('pringCard').innerHTML=ph;var cp=D.cycle_phase||{};var s=D.summary||{};var dh='<h3 style="color:#ff006e;">一致性诊断 Diagnosis</h3>';dh+='<div class="ml-info"><span>周期阶段：</span><strong>'+(cp.phase||'--')+'</strong></div>';dh+='<div class="ml-info" style="font-size:0.75rem;color:#8899aa;margin-bottom:8px;">'+(cp.description||'')+'</div>';dh+='<div class="diag-row"><span class="diag-label">领先指标方向</span><span class="diag-val '+(cp.leading_majority||'')+'">'+dirLabel(cp.leading_majority)+'</span></div>';dh+='<div class="diag-row"><span class="diag-label">同步指标方向</span><span class="diag-val '+(cp.coincident_majority||'')+'">'+dirLabel(cp.coincident_majority)+'</span></div>';dh+='<div class="diag-row"><span class="diag-label">滞后指标方向</span><span class="diag-val '+(cp.lagging_majority||'')+'">'+dirLabel(cp.lagging_majority)+'</span></div>';dh+='<div class="summary-stats">';dh+='<span class="stat-chip good">领先改善 '+(s.leading_improving||0)+'</span>';dh+='<span class="stat-chip bad">领先恶化 '+(s.leading_deteriorating||0)+'</span>';dh+='<span class="stat-chip good">同步改善 '+(s.coincident_improving||0)+'</span>';dh+='<span class="stat-chip bad">同步恶化 '+(s.coincident_deteriorating||0)+'</span>';dh+='</div>';document.getElementById('diagCard').innerHTML=dh}
+function initApp(D){document.getElementById('updateTime').textContent=D.update_time||'--';var cycleBadge=document.getElementById('cycleBadge');cycleBadge.style.display='none';function tick(){var now=new Date();document.getElementById('liveClock').textContent=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0')}tick();setInterval(tick,1000);buildKpiRow(D);buildIndicatorGrid(D);buildTrendTab(D);buildHeatmap(D);buildComposite(D);buildDecomp(D);buildCycleCards(D);document.querySelectorAll('.tab-btn').forEach(function(btn){btn.addEventListener('click',function(){var tabId=this.getAttribute('data-tab');document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});this.classList.add('active');document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active')});document.getElementById(tabId).classList.add('active');setTimeout(function(){resizeAll()},150)})});window.addEventListener('resize',function(){resizeAll()})}
+window.triggerUpdate=function(){var b=document.getElementById('syncBtn');if(!b)return;b.disabled=true;b.textContent='更新中...';b.classList.add('updating');fetch('/api/update',{method:'POST'}).then(function(r){return r.json()}).then(function(d){if(d.ok){b.textContent='已启动';setTimeout(function(){b.textContent='同步更新';b.classList.remove('updating');b.disabled=false;pollUpdateStatus()},2000)}else{b.textContent=d.message||'失败';b.classList.remove('updating');b.disabled=false}}).catch(function(e){b.textContent='连接失败';b.classList.remove('updating');b.disabled=false})};
+function pollUpdateStatus(){var b=document.getElementById('syncBtn');var iv=setInterval(function(){fetch('/api/status').then(function(r){return r.json()}).then(function(s){if(!s.running){clearInterval(iv);b.textContent='同步更新';b.disabled=false;b.classList.remove('updating');if(s.last_result&&s.last_result.success){b.textContent='已更新';setTimeout(function(){b.textContent='同步更新'},3000);location.reload()}else{b.textContent='更新失败';setTimeout(function(){b.textContent='同步更新'},3000)}}})},3000);setTimeout(function(){clearInterval(iv);b.textContent='同步更新';b.disabled=false;b.classList.remove('updating')},120000)}
+fetch('data/analysis_trimmed.json').then(function(r){return r.json()}).then(function(DATA){initApp(DATA)}).catch(function(e){console.error('加载数据失败:',e)});
+</script>
+</body>
+</html>

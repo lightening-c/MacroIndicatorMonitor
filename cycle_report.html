@@ -1,0 +1,1795 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宏观周期分析报告</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+/* ============================================================
+   CSS Custom Properties - Sci-Fi Dark Theme
+   ============================================================ */
+:root {
+  color-scheme: dark;
+  --bg-deep: #0a0e14;
+  --bg-mid: #0d1117;
+  --bg-card: rgba(13, 17, 23, 0.82);
+  --bg-glass: rgba(13, 17, 23, 0.65);
+  --text-primary: #e0e6f0;
+  --text-secondary: #8899aa;
+  --text-muted: #556677;
+  --cyan: #00d4ff;
+  --cyan-dim: rgba(0, 212, 255, 0.15);
+  --cyan-glow: 0 0 18px rgba(0, 212, 255, 0.35);
+  --magenta: #ff006e;
+  --magenta-dim: rgba(255, 0, 110, 0.15);
+  --magenta-glow: 0 0 18px rgba(255, 0, 110, 0.35);
+  --gold: #ffd700;
+  --gold-dim: rgba(255, 215, 0, 0.12);
+  --gold-glow: 0 0 18px rgba(255, 215, 0, 0.3);
+  --status-improving: #00e676;
+  --status-deteriorating: #ff3366;
+  --status-warning: #fab219;
+  --status-stable: #667788;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-card: rgba(255, 255, 255, 0.08);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --transition-fast: 0.2s ease;
+  --transition-med: 0.35s ease;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  background: linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-mid) 40%, #0f1620 100%);
+  color: var(--text-primary);
+  line-height: 1.55;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+#particles-canvas {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+}
+.scanlines {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
+  );
+}
+#app { position: relative; z-index: 2; }
+
+/* Header */
+.hero {
+  position: relative; padding: 40px 32px 32px; text-align: center;
+  border-bottom: 1px solid var(--border-subtle); overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(0,212,255,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(24px, 4.5vw, 42px); font-weight: 800; letter-spacing: 6px;
+  color: var(--text-primary);
+  text-shadow: 0 0 40px rgba(0,212,255,0.3), 0 0 80px rgba(0,212,255,0.1);
+}
+.hero-subtitle {
+  margin-top: 8px; font-size: 12px; color: var(--text-secondary);
+  letter-spacing: 2px; font-family: 'Orbitron', sans-serif; font-weight: 400;
+}
+.hero-row {
+  display: flex; justify-content: center; align-items: center; gap: 20px;
+  margin-top: 20px; flex-wrap: wrap;
+}
+.nav-link {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--cyan);
+  text-decoration: none; letter-spacing: 1px; padding: 8px 16px;
+  border: 1px solid rgba(0,212,255,0.25); border-radius: 20px;
+  transition: all var(--transition-fast);
+}
+.nav-link:hover {
+  background: rgba(0,212,255,0.1);
+  box-shadow: 0 0 16px rgba(0,212,255,0.25);
+}
+
+/* Main Layout */
+.main-container { max-width: 1600px; margin: 0 auto; padding: 24px 32px 40px; }
+
+.section-header {
+  display: flex; align-items: center; gap: 12px;
+  margin: 36px 0 18px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.section-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--cyan-dim); border: 1px solid rgba(0,212,255,0.3);
+  color: var(--cyan); font-family: 'Orbitron', sans-serif;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+}
+.section-title {
+  font-family: 'Orbitron', sans-serif; font-size: 15px; font-weight: 700;
+  letter-spacing: 2px; color: var(--text-primary);
+}
+.section-subtitle {
+  margin-left: auto; font-size: 10px; color: var(--text-muted); letter-spacing: 1px;
+}
+
+/* ML 2x2 Grid */
+.ml-2x2-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; grid-template-rows: auto auto; gap: 16px; }
+.ml-chart-card .chart-box { height: 400px; }
+@media (max-width: 900px) { .ml-2x2-grid { grid-template-columns: 1fr; } }
+/* Two-column grid */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 1000px) { .two-col { grid-template-columns: 1fr; } }
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-card); border-radius: var(--radius);
+  padding: 20px; position: relative; overflow: hidden;
+  transition: border-color var(--transition-med), box-shadow var(--transition-med);
+}
+.card:hover {
+  border-color: rgba(255,255,255,0.12);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+.card-header {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 600;
+  letter-spacing: 1.5px; color: var(--text-secondary); margin-bottom: 14px;
+  text-transform: uppercase; display: flex; align-items: center; gap: 8px;
+}
+
+.accent-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.accent-dot.cyan    { background: var(--cyan);    box-shadow: 0 0 8px var(--cyan); }
+.accent-dot.gold    { background: var(--gold);    box-shadow: 0 0 8px var(--gold); }
+.accent-dot.magenta { background: var(--magenta); box-shadow: 0 0 8px var(--magenta); }
+.accent-dot.green   { background: var(--status-improving); box-shadow: 0 0 8px var(--status-improving); }
+
+/* Chart Box */
+.chart-box { width: 100%; height: 500px; }
+
+/* Quadrant Badge */
+.quadrant-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 22px; border-radius: 24px;
+  font-family: 'Orbitron', sans-serif; font-size: 15px; font-weight: 700;
+  letter-spacing: 2px;
+  animation: pulseBadge 2s ease-in-out infinite;
+}
+.quadrant-badge.recovery {
+  background: rgba(0,230,118,0.12); border: 1px solid rgba(0,230,118,0.35);
+  color: var(--status-improving); box-shadow: 0 0 20px rgba(0,230,118,0.2);
+}
+.quadrant-badge.overheat {
+  background: rgba(255,215,0,0.12); border: 1px solid rgba(255,215,0,0.35);
+  color: var(--gold); box-shadow: 0 0 20px rgba(255,215,0,0.2);
+}
+.quadrant-badge.stagflation {
+  background: rgba(255,0,110,0.12); border: 1px solid rgba(255,0,110,0.35);
+  color: var(--magenta); box-shadow: 0 0 20px rgba(255,0,110,0.2);
+}
+.quadrant-badge.recession {
+  background: rgba(0,212,255,0.12); border: 1px solid rgba(0,212,255,0.35);
+  color: var(--cyan); box-shadow: 0 0 20px rgba(0,212,255,0.2);
+}
+@keyframes pulseBadge {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
+}
+
+/* Info Rows */
+.info-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border-subtle); font-size: 12px;
+}
+.info-row:last-child { border-bottom: none; }
+.info-label { color: var(--text-secondary); }
+.info-value {
+  color: var(--text-primary); font-weight: 600;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 0.5px;
+}
+
+/* Allocation Strategy */
+.alloc-strategy {
+  margin-top: 14px; padding: 12px 16px;
+  background: var(--bg-glass); border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+.alloc-strategy-label {
+  font-size: 10px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px;
+}
+.alloc-strategy-value { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+
+/* Asset Table */
+.asset-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+.asset-table thead th {
+  text-align: left; padding: 8px 10px; font-size: 10px; font-weight: 600;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;
+  border-bottom: 1px solid var(--border-subtle); background: var(--bg-glass);
+}
+.asset-table tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border-subtle); }
+.asset-table tbody tr.current-row { background: rgba(255,215,0,0.04); }
+.asset-table .rank-1 {
+  color: var(--gold); font-family: 'Orbitron', sans-serif;
+  font-weight: 700; font-size: 13px;
+}
+.asset-table .rank-2 { color: var(--text-secondary); font-weight: 600; }
+.asset-table .rank-3, .asset-table .rank-4 { color: var(--text-muted); }
+
+/* Stage Badge */
+.stage-badge-lg {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 28px; border-radius: 28px;
+  font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 700;
+  letter-spacing: 2px;
+  background: rgba(255,0,110,0.12); border: 1px solid rgba(255,0,110,0.3);
+  color: var(--magenta); box-shadow: 0 0 24px rgba(255,0,110,0.2);
+}
+.stage-desc {
+  font-size: 13px; color: var(--text-secondary);
+  line-height: 1.7; margin-top: 12px;
+}
+
+/* Signal Rows */
+.signal-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; margin: 6px 0;
+  background: var(--bg-glass); border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+.signal-icon { font-size: 18px; flex-shrink: 0; }
+.signal-icon.up     { color: var(--status-improving); }
+.signal-icon.down   { color: var(--status-deteriorating); }
+.signal-icon.stable { color: var(--text-muted); }
+.signal-name  { font-weight: 600; font-size: 12px; color: var(--text-primary); flex: 1; }
+.signal-label { font-size: 10px; color: var(--text-muted); }
+
+/* Weight Bars */
+.weight-item { margin: 10px 0; }
+.weight-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 4px;
+}
+.weight-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.weight-pct  {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: var(--text-secondary);
+}
+.weight-track {
+  width: 100%; height: 6px; background: var(--bg-glass);
+  border-radius: 3px; overflow: hidden;
+}
+.weight-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+.wf-bond      { background: linear-gradient(90deg, #3987e5, #5598e7); }
+.wf-stock     { background: linear-gradient(90deg, #d95926, #eb6834); }
+.wf-commodity { background: linear-gradient(90deg, #c98500, #eda100); }
+.wf-cash      { background: linear-gradient(90deg, #556677, #8899aa); }
+
+/* Consistency Card */
+.consistency-card {
+  padding: 24px; border-radius: var(--radius);
+  background: var(--bg-card); backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-card); margin-top: 20px;
+}
+.consistency-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 12px 24px; border-radius: 24px;
+  font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 700;
+  letter-spacing: 2px; margin-bottom: 16px;
+}
+.consistency-badge.consistent {
+  background: rgba(0,230,118,0.12); border: 1px solid rgba(0,230,118,0.4);
+  color: var(--status-improving);
+}
+.consistency-badge.partial {
+  background: rgba(250,178,25,0.12); border: 1px solid rgba(250,178,25,0.4);
+  color: var(--status-warning);
+}
+.consistency-badge.divergent {
+  background: rgba(255,51,102,0.12); border: 1px solid rgba(255,51,102,0.4);
+  color: var(--status-deteriorating);
+}
+.consistency-explanation {
+  font-size: 13px; color: var(--text-secondary);
+  line-height: 1.8; margin-bottom: 14px;
+}
+.combined-outlook {
+  padding: 14px 18px; background: var(--bg-glass);
+  border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);
+  font-size: 13px; color: var(--text-primary); line-height: 1.7;
+}
+
+/* Indicator Detail Table */
+.data-table-wrap { overflow-x: auto; margin-top: 8px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.data-table thead th {
+  text-align: left; padding: 10px 12px; font-size: 10px; font-weight: 600;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;
+  border-bottom: 2px solid var(--border-subtle); background: var(--bg-glass);
+  white-space: nowrap;
+}
+.data-table tbody td {
+  padding: 10px 12px; border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+.data-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+.cat-tag {
+  display: inline-block; padding: 2px 10px; border-radius: 10px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.5px;
+}
+.cat-tag.leading    { background: var(--cyan-dim);    color: var(--cyan); }
+.cat-tag.coincident { background: var(--gold-dim);    color: var(--gold); }
+.cat-tag.lagging    { background: var(--magenta-dim); color: var(--magenta); }
+.dir-arrow { font-weight: 700; }
+.dir-arrow.up   { color: var(--status-improving); }
+.dir-arrow.down { color: var(--status-deteriorating); }
+.dir-arrow.flat { color: var(--text-muted); }
+.sig-tag {
+  display: inline-block; padding: 2px 10px; border-radius: 10px;
+  font-size: 10px; font-weight: 700;
+}
+.sig-tag.improving     { background: rgba(0,230,118,0.12);  color: var(--status-improving); }
+.sig-tag.deteriorating { background: rgba(255,51,102,0.12); color: var(--status-deteriorating); }
+.sig-tag.stable        { background: rgba(102,119,136,0.12); color: var(--text-muted); }
+
+/* Footer */
+.footer {
+  text-align: center; padding: 28px 32px 32px;
+  border-top: 1px solid var(--border-subtle); max-width: 1600px; margin: 0 auto;
+}
+.footer-text { font-size: 10px; color: var(--text-muted); line-height: 1.8; }
+.footer-text a { color: var(--cyan); text-decoration: none; }
+.footer-text a:hover { text-decoration: underline; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1); border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+@media (max-width: 768px) {
+  .hero         { padding: 28px 16px 24px; }
+  .hero-title   { font-size: 20px; letter-spacing: 3px; }
+  .main-container { padding: 16px 12px 32px; }
+  .chart-box    { height: 380px; }
+  .section-header { flex-wrap: wrap; }
+  .section-subtitle { margin-left: 0; width: 100%; margin-top: 4px; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="particles-canvas"></canvas>
+<div class="scanlines"></div>
+
+<div id="app">
+
+<header class="hero">
+  <h1 class="hero-title">宏观周期分析报告</h1>
+  <p class="hero-subtitle" id="hero-subtitle">--</p>
+  <div class="hero-row">
+    <a href="dashboard.html" class="nav-link">&larr; 返回数据面板</a>
+  </div>
+</header>
+
+<div class="main-container">
+
+  <!-- Section 1: 美林时钟 -->
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <span class="section-title">美林时钟 — 经济周期定位</span>
+    <span class="section-subtitle">增长 - 通胀双维度分析</span>
+  </div>
+
+  <div class="ml-2x2-grid">
+    <!-- Top-Left: Chart -->
+    <div class="card ml-chart-card">
+      <div class="card-header">
+        <span class="accent-dot cyan"></span> 经济周期图谱
+      </div>
+      <div class="chart-box" id="chart-merrill" style="height:460px;"></div>
+    </div>
+    <!-- Top-Right: Position + Strategy -->
+    <div class="card">
+      <div class="card-header">
+        <span class="accent-dot gold"></span> 当前定位
+      </div>
+      <div style="text-align:center;margin:12px 0 16px;">
+        <span class="quadrant-badge" id="quadrant-badge">--</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">增长坐标 (X)</span>
+        <span class="info-value" id="ml-x">--</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">通胀坐标 (Y)</span>
+        <span class="info-value" id="ml-y">--</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">增长代理指标</span>
+        <span class="info-value" id="ml-growth-proxy" style="font-size:10px;">--</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">通胀代理指标</span>
+        <span class="info-value" id="ml-inflation-proxy" style="font-size:10px;">--</span>
+      </div>
+      <div class="alloc-strategy">
+        <div class="alloc-strategy-label">推荐资产配置</div>
+        <div class="alloc-strategy-value" id="ml-allocation">--</div>
+      </div>
+    </div>
+    <!-- Bottom-Left: Asset Ranking -->
+    <div class="card">
+      <div class="card-header">
+        <span class="accent-dot green"></span> 各象限资产表现排名
+      </div>
+      <table class="asset-table" style="font-size:10.5px;">
+        <thead>
+          <tr><th>象限</th><th>最优</th><th>次优</th><th>第三</th><th>末位</th></tr>
+        </thead>
+        <tbody id="asset-table-body"></tbody>
+      </table>
+    </div>
+    <!-- Bottom-Right: Trajectory -->
+    <div class="card">
+      <div class="card-header">
+        <span class="accent-dot cyan"></span> 历史轨迹明细
+      </div>
+      <div style="max-height:160px;overflow-y:auto;">
+      <table class="asset-table" style="font-size:10px;">
+        <thead><tr><th>日期</th><th>增长 X</th><th>通胀 Y</th><th>象限</th></tr></thead>
+        <tbody id="trajectory-table-body"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section: 经济周期路径 — 四阶段时序图 -->
+  <div class="section-header">
+    <div class="section-num" style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:#00d4ff;">▶</div>
+    <span class="section-title">经济周期路径 — 四阶段时序图</span>
+    <span class="section-subtitle">基于美林时钟象限的历史演变</span>
+  </div>
+  <div class="card">
+    <div class="chart-box" id="chart-cycle-timeline" style="height:420px;"></div>
+  </div>
+
+  <!-- Section 2: 普林格六阶段 -->
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <span class="section-title">普林格六阶段 — 三市场周期分析</span>
+    <span class="section-subtitle">债券 / 股票 / 商品相对强弱</span>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-header">
+        <span class="accent-dot magenta"></span> 阶段时间线与市场信号
+      </div>
+      <div class="chart-box" id="chart-pring"></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="card">
+        <div class="card-header">
+          <span class="accent-dot magenta"></span> 当前阶段
+        </div>
+        <div style="text-align:center;margin:8px 0 16px;">
+          <span class="stage-badge-lg" id="stage-badge">--</span>
+        </div>
+        <div class="stage-desc" id="stage-desc">--</div>
+        <div style="margin-top:14px;" id="signal-rows"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="accent-dot gold"></span> 推荐资产权重
+        </div>
+        <div id="weight-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section: 普林格周期 — 历史信号演变 -->
+  <div class="section-header">
+    <div class="section-num" style="background:rgba(255,0,110,0.1);border-color:rgba(255,0,110,0.3);color:#ff006e;">▶</div>
+    <span class="section-title">普林格周期 — 历史信号演变</span>
+    <span class="section-subtitle">三市场方向信号的历史变化</span>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="accent-dot magenta"></span> 历史信号演变</div>
+    <div class="chart-box" id="chart-pring-history" style="height:380px;"></div>
+  </div>
+
+  <!-- Section 3: 框架一致性诊断 -->
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <span class="section-title">框架一致性诊断</span>
+    <span class="section-subtitle">美林时钟 vs 普林格周期交叉验证</span>
+  </div>
+
+  <div class="consistency-card">
+    <div style="text-align:center;">
+      <span class="consistency-badge" id="consistency-badge">--</span>
+    </div>
+    <div class="consistency-explanation" id="consistency-explanation"></div>
+    <div class="combined-outlook" id="combined-outlook"></div>
+  </div>
+
+  <!-- Section 4: 指标明细表 -->
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <span class="section-title">指标明细表</span>
+    <span class="section-subtitle">核心经济指标一览</span>
+  </div>
+
+  <div class="card">
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>指标名称</th>
+            <th>类别</th>
+            <th>最新值</th>
+            <th>变动方向</th>
+            <th>信号</th>
+            <th>周期贡献解读</th>
+          </tr>
+        </thead>
+        <tbody id="indicator-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<footer class="footer">
+  <p class="footer-text">
+    数据来源：国家统计局 &middot; 中国人民银行 &middot; 海关总署 &middot; 上交所 &middot; 深交所<br>
+    数据由 AKShare 提供 &middot; 分析仅供参考，不构成投资建议<br>
+    更新于 <span id="footer-update-time">--</span>
+  </p>
+</footer>
+
+</div>
+
+<script src="data/analysis_data.js"></script>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── Load data from global variable ──────────────────────────
+  var ANALYSIS = window.__ANALYSIS_DATA__;
+  if (!ANALYSIS) {
+    ANALYSIS = {
+      update_time: new Date().toISOString(),
+      indicators: { leading: [], coincident: [], lagging: [] },
+      merrill_lynch: {}, pring: {}, summary: {},
+      correlation_matrix: {}, composite_indices: {},
+      momentum: {}, decomposition: {}, cycle_phase: {}
+    };
+  }
+
+  var ML  = ANALYSIS.merrill_lynch || {};
+  var PR  = ANALYSIS.pring || {};
+  var SU  = ANALYSIS.summary || {};
+  var ALL_INDS = [];
+
+  ['leading', 'coincident', 'lagging'].forEach(function(cat) {
+    (ANALYSIS.indicators[cat] || []).forEach(function(ind) {
+      ind._category = cat;
+      ALL_INDS.push(ind);
+    });
+  });
+
+  // ── Utilities ───────────────────────────────────────────────
+
+  /** Resolve indicator id to display name */
+  function indName(id) {
+    if (!id) return '--';
+    for (var i = 0; i < ALL_INDS.length; i++) {
+      if (ALL_INDS[i].id === id) return ALL_INDS[i].name;
+    }
+    return id;
+  }
+
+  function fmtNum(v, d) {
+    if (v == null || isNaN(v)) return '--';
+    d = (d !== undefined) ? d : 2;
+    var abs = Math.abs(v);
+    if (abs >= 1e8) return (v / 1e8).toFixed(d) + '亿';
+    if (abs >= 1e4) return (v / 1e4).toFixed(d) + '万';
+    return Number(v).toFixed(d);
+  }
+
+  /** Map quadrant to CSS class key */
+  function quadrantClass(q) {
+    var ql = (q || '').toLowerCase();
+    if (ql.indexOf('复苏') >= 0 || ql.indexOf('recovery') >= 0)    return 'recovery';
+    if (ql.indexOf('过热') >= 0 || ql.indexOf('overheat') >= 0)    return 'overheat';
+    if (ql.indexOf('滞胀') >= 0 || ql.indexOf('stagflation') >= 0) return 'stagflation';
+    if (ql.indexOf('衰退') >= 0 || ql.indexOf('recession') >= 0)   return 'recession';
+    return 'recovery';
+  }
+
+  /** Map Pring stage string to index (0-5) */
+  function pringStageIndex(stageStr) {
+    var s = (stageStr || '').toLowerCase();
+    if (s.indexOf('阶段1') >= 0 || s.indexOf('衰退初期') >= 0) return 0;
+    if (s.indexOf('阶段2') >= 0 || s.indexOf('复苏初期') >= 0) return 1;
+    if (s.indexOf('阶段3') >= 0 || s.indexOf('全面牛市') >= 0) return 2;
+    if (s.indexOf('阶段4') >= 0 || s.indexOf('过热初期') >= 0) return 3;
+    if (s.indexOf('阶段5') >= 0 || s.indexOf('滞胀') >= 0)     return 4;
+    if (s.indexOf('阶段6') >= 0 || s.indexOf('全面衰退') >= 0) return 5;
+    // Fallback: derive from market signals
+    var bd = PR.bond_signal || 'stable';
+    var sd = PR.stock_signal || 'stable';
+    var cd = PR.commodity_signal || 'stable';
+    if (bd === 'up'   && sd === 'down' && cd === 'down') return 0;
+    if (bd === 'up'   && sd === 'up'   && cd === 'down') return 1;
+    if (bd === 'up'   && sd === 'up'   && cd === 'up')   return 2;
+    if (bd === 'down' && sd === 'up'   && cd === 'up')   return 3;
+    if (bd === 'down' && sd === 'down' && cd === 'up')   return 4;
+    if (bd === 'down' && sd === 'down' && cd === 'down') return 5;
+    return 2; // default
+  }
+
+  function shortDate(d) {
+    if (!d) return '';
+    var s = String(d);
+    if (s.indexOf('T') > -1) s = s.split('T')[0];
+    var parts = s.split('-');
+    if (parts.length >= 2) return parts[0] + '-' + parts[1];
+    return s.substring(0, 10);
+  }
+
+  // ── Particle Canvas ─────────────────────────────────────────
+  (function() {
+    var canvas = document.getElementById('particles-canvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var particles = [];
+    var count = 80;
+
+    function resize() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    for (var i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        size: Math.random() * 1.8 + 0.5,
+        opacity: Math.random() * 0.5 + 0.1
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (var i = 0; i < particles.length; i++) {
+        var p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,212,255,' + p.opacity + ')';
+        ctx.fill();
+      }
+      for (var i = 0; i < particles.length; i++) {
+        for (var j = i + 1; j < particles.length; j++) {
+          var dx = particles[i].x - particles[j].x;
+          var dy = particles[i].y - particles[j].y;
+          var dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 120) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = 'rgba(0,212,255,' + (0.06 * (1 - dist / 120)) + ')';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+
+  // ── Populate Header & Footer ────────────────────────────────
+  document.getElementById('hero-subtitle').textContent =
+    '更新: ' + (ANALYSIS.update_time || '--') + ' | 美林时钟 & 普林格周期理论分析';
+  document.getElementById('footer-update-time').textContent =
+    ANALYSIS.update_time || '--';
+
+  // ── Populate Merrill Lynch Position Card ────────────────────
+  var qc = quadrantClass(ML.quadrant);
+  var quadrantBadge = document.getElementById('quadrant-badge');
+  quadrantBadge.textContent = ML.quadrant || '--';
+  quadrantBadge.className = 'quadrant-badge ' + qc;
+
+  document.getElementById('ml-x').textContent =
+    ML.x != null ? ML.x.toFixed(4) : '--';
+  document.getElementById('ml-y').textContent =
+    ML.y != null ? ML.y.toFixed(4) : '--';
+
+  // Resolve growth/inflation proxy indicator IDs to names
+  var growthNames = (ML.growth_indicators || []).map(function(id) {
+    return indName(id);
+  });
+  var inflNames = (ML.inflation_indicators || []).map(function(id) {
+    return indName(id);
+  });
+  document.getElementById('ml-growth-proxy').textContent =
+    growthNames.length > 0 ? growthNames.join(', ') : '--';
+  document.getElementById('ml-inflation-proxy').textContent =
+    inflNames.length > 0 ? inflNames.join(', ') : '--';
+  document.getElementById('ml-allocation').textContent =
+    ML.asset_allocation || '--';
+
+  // ── Asset Performance Table ─────────────────────────────────
+  var assetRows = [
+    { q: '复苏期', r1: '股票', r2: '债券', r3: '现金', r4: '商品' },
+    { q: '过热期', r1: '商品', r2: '股票', r3: '现金', r4: '债券' },
+    { q: '滞胀期', r1: '现金', r2: '商品', r3: '债券', r4: '股票' },
+    { q: '衰退期', r1: '债券', r2: '现金', r3: '股票', r4: '商品' }
+  ];
+
+  var currentQuadrant = ML.quadrant || '';
+  var assetHtml = '';
+  assetRows.forEach(function(r) {
+    var isCurrent = currentQuadrant.indexOf(r.q.charAt(0)) >= 0;
+    assetHtml += '<tr' + (isCurrent ? ' class="current-row"' : '') + '>';
+    assetHtml += '<td style="font-weight:600;">' +
+      (isCurrent ? '&#9654; ' : '') + r.q + '</td>';
+    assetHtml += '<td class="rank-1">' + r.r1 + '</td>';
+    assetHtml += '<td class="rank-2">' + r.r2 + '</td>';
+    assetHtml += '<td class="rank-3">' + r.r3 + '</td>';
+    assetHtml += '<td class="rank-4">' + r.r4 + '</td>';
+    assetHtml += '</tr>';
+  });
+  document.getElementById('asset-table-body').innerHTML = assetHtml;
+
+  // ── Trajectory History Table ────────────────────────────────
+  (function() {
+    var traj = ML.trajectory || [];
+    var recent = traj.slice(-12).reverse();
+    var rows = '';
+    recent.forEach(function(p) {
+      var qx = p.x || 0;
+      var qy = p.y || 0;
+      var quad = '--';
+      if (qx >= 0 && qy >= 0) quad = '过热期';
+      else if (qx >= 0 && qy < 0) quad = '复苏期';
+      else if (qx < 0 && qy >= 0) quad = '滞胀期';
+      else quad = '衰退期';
+      rows += '<tr><td>' + shortDate(p.date) + '</td>' +
+        '<td>' + qx.toFixed(3) + '</td>' +
+        '<td>' + qy.toFixed(3) + '</td>' +
+        '<td>' + quad + '</td></tr>';
+    });
+    document.getElementById('trajectory-table-body').innerHTML =
+      rows || '<tr><td colspan="4">无历史数据</td></tr>';
+  })();
+
+  // ── Populate Pring Stage Card ───────────────────────────────
+  document.getElementById('stage-badge').textContent = PR.stage || '无数据';
+  document.getElementById('stage-desc').textContent = PR.description || '';
+
+  var signals = [
+    {
+      key: 'bond', label: '债券市场',
+      ind: PR.bond_indicator || '--',
+      val: PR.bond_proxy_value,
+      dir: PR.bond_signal
+    },
+    {
+      key: 'stock', label: '股票市场',
+      ind: PR.stock_indicator || '--',
+      val: PR.stock_proxy_value,
+      dir: PR.stock_signal
+    },
+    {
+      key: 'commodity', label: '商品市场',
+      ind: PR.commodity_indicator || '--',
+      val: PR.commodity_proxy_value,
+      dir: PR.commodity_signal
+    }
+  ];
+
+  var sigHtml = '';
+  signals.forEach(function(s) {
+    var d = s.dir || 'stable';
+    var icon = d === 'up' ? '▲' : (d === 'down' ? '▼' : '■');
+    var cls = d === 'up' ? 'up' : (d === 'down' ? 'down' : 'stable');
+    var outlook = d === 'up' ? '看涨' : (d === 'down' ? '看跌' : '中性');
+    sigHtml += '<div class="signal-row">';
+    sigHtml += '<span class="signal-icon ' + cls + '">' + icon + '</span>';
+    sigHtml += '<span class="signal-name">' + s.label + '</span>';
+    sigHtml += '<span class="signal-label">' + indName(s.ind) +
+      (s.val != null ? ' = ' + fmtNum(s.val) : '') +
+      ' | ' + outlook + '</span>';
+    sigHtml += '</div>';
+  });
+  document.getElementById('signal-rows').innerHTML = sigHtml;
+
+  // ── Asset Weight Bars ───────────────────────────────────────
+  var weights = PR.asset_weights || {};
+  if (Object.keys(weights).length === 0) {
+    var upCount = 0;
+    signals.forEach(function(s) { if (s.dir === 'up') upCount++; });
+    if (upCount >= 2) {
+      weights = { bond: 20, stock: 35, commodity: 30, cash: 15 };
+    } else if (upCount === 1) {
+      weights = { bond: 25, stock: 30, commodity: 20, cash: 25 };
+    } else {
+      weights = { bond: 15, stock: 25, commodity: 25, cash: 35 };
+    }
+  }
+
+  var weightItems = [
+    { k: 'bond',      n: '债券', c: 'wf-bond' },
+    { k: 'stock',     n: '股票', c: 'wf-stock' },
+    { k: 'commodity', n: '商品', c: 'wf-commodity' },
+    { k: 'cash',      n: '现金', c: 'wf-cash' }
+  ];
+
+  var wh = '';
+  weightItems.forEach(function(w) {
+    var pct = weights[w.k] != null ? weights[w.k] : 0;
+    wh += '<div class="weight-item">';
+    wh += '<div class="weight-header">';
+    wh += '<span class="weight-name">' + w.n + '</span>';
+    wh += '<span class="weight-pct">' + pct + '%</span>';
+    wh += '</div>';
+    wh += '<div class="weight-track">';
+    wh += '<div class="weight-fill ' + w.c + '" style="width:' + pct + '%"></div>';
+    wh += '</div></div>';
+  });
+  document.getElementById('weight-list').innerHTML = wh;
+
+  // ── Framework Consistency Check ─────────────────────────────
+  (function() {
+    var mlQ  = (ML.quadrant || '').toLowerCase();
+    var prS  = (PR.stage || '').toLowerCase();
+
+    // Determine directional signal from each framework
+    var mlExp  = mlQ.indexOf('过热') >= 0 || mlQ.indexOf('复苏') >= 0 ||
+                 mlQ.indexOf('overheat') >= 0 || mlQ.indexOf('recovery') >= 0;
+    var mlCont = mlQ.indexOf('衰退') >= 0 || mlQ.indexOf('滞胀') >= 0 ||
+                 mlQ.indexOf('recession') >= 0 || mlQ.indexOf('stagflation') >= 0;
+
+    var prExp  = prS.indexOf('阶段3') >= 0 || prS.indexOf('阶段2') >= 0 ||
+                 prS.indexOf('全面') >= 0 || prS.indexOf('牛市') >= 0;
+    var prCont = prS.indexOf('阶段5') >= 0 || prS.indexOf('阶段6') >= 0 ||
+                 prS.indexOf('衰退') >= 0 || prS.indexOf('滞胀') >= 0;
+
+    var agree   = (mlExp && prExp) || (mlCont && prCont);
+    var partial = (mlExp && prS.indexOf('过渡') >= 0) ||
+                  (mlCont && prS.indexOf('过渡') >= 0) ||
+                  (prExp && mlQ.indexOf('过渡') >= 0);
+
+    var badge = document.getElementById('consistency-badge');
+    var explanation = '';
+    var outlook = '';
+
+    if (agree) {
+      badge.textContent = '✔ 一致';
+      badge.className = 'consistency-badge consistent';
+      explanation =
+        '美林时钟与普林格六阶段分析方向一致。美林时钟定位为"' + ML.quadrant +
+        '"，普林格周期处于"' + PR.stage +
+        '"。两个框架的核心判断相互验证，经济周期定位较为明确。';
+      outlook =
+        '综合研判：两个框架信号一致，当前周期定位的置信度较高。建议按照' +
+        (ML.asset_allocation || '标准配置') + '进行资产配置。';
+    } else if (partial) {
+      badge.textContent = '⚠ 部分一致';
+      badge.className = 'consistency-badge partial';
+      explanation =
+        '美林时钟显示"' + ML.quadrant + '"，普林格周期显示"' + PR.stage +
+        '"。两个框架信号不完全一致，可能处于周期转换阶段。' +
+        '美林时钟基于增长-通胀双维度定位，普林格基于三市场（债券/股票/商品）' +
+        '相对强弱，两者捕捉的周期维度不同，在转换期容易出现信号分歧。';
+      outlook =
+        '综合研判：经济可能处于周期转换阶段。建议降低单一框架权重，综合两个框架信号：' +
+        '如果增长指标偏强但通胀上行，可参考美林时钟的过热期配置；' +
+        '如果债券率先转弱，要注意普林格提示的周期阶段切换风险。关注后续数据确认方向。';
+    } else {
+      badge.textContent = '✘ 分歧';
+      badge.className = 'consistency-badge divergent';
+      explanation =
+        '美林时钟显示"' + ML.quadrant + '"，与普林格周期"' + PR.stage +
+        '"方向不一致。这两个框架基于不同的理论基础。信号分歧可能反映：' +
+        '1）不同维度的经济驱动力出现分化；' +
+        '2）周期转换期的不确定性增加；' +
+        '3）外部冲击或政策干预打乱了常规传导路径。';
+      outlook =
+        '综合研判：两个框架信号分歧较大，建议保持谨慎。应重点关注：' +
+        '1）先行指标（PMI、M2、社会融资）的方向是否一致；' +
+        '2）债券市场是否出现趋势性拐点；' +
+        '3）通胀压力的持续性。在分歧明显时，以现金和短债为主，等待信号明朗。';
+    }
+
+    document.getElementById('consistency-explanation').textContent = explanation;
+    document.getElementById('combined-outlook').textContent = outlook;
+  })();
+
+  // ── Indicator Detail Table ──────────────────────────────────
+  (function() {
+    var rowsHtml = '';
+    ALL_INDS.forEach(function(ind) {
+      var dIcon, dClass;
+      if (ind.direction === 'up') {
+        dIcon = '↑'; dClass = 'up';
+      } else if (ind.direction === 'down') {
+        dIcon = '↓'; dClass = 'down';
+      } else {
+        dIcon = '→'; dClass = 'flat';
+      }
+
+      var catLabel = ind._category === 'leading' ? '领先' :
+                     (ind._category === 'coincident' ? '同步' : '滞后');
+
+      var contrib = '';
+      if (ind.signal === 'improving') {
+        contrib = '支撑经济上行判断';
+      } else if (ind.signal === 'deteriorating') {
+        contrib = '提示经济下行风险';
+      } else {
+        contrib = '信号中性，等待确认';
+      }
+      if (ind.zscore != null) {
+        contrib += ' | Z: ' + ind.zscore.toFixed(2);
+      }
+
+      var sigLabel, sigClass;
+      if (ind.signal === 'improving') {
+        sigLabel = '改善'; sigClass = 'improving';
+      } else if (ind.signal === 'deteriorating') {
+        sigLabel = '恶化'; sigClass = 'deteriorating';
+      } else {
+        sigLabel = '持平'; sigClass = 'stable';
+      }
+
+      var momStr = ind.mom_change != null ?
+        ((ind.mom_change >= 0 ? '+' : '') + ind.mom_change.toFixed(2) + ' MoM') :
+        '--';
+
+      rowsHtml += '<tr>';
+      rowsHtml += '<td style="font-weight:600;">' + ind.name + '</td>';
+      rowsHtml += '<td><span class="cat-tag ' + ind._category + '">' +
+        catLabel + '</span></td>';
+      rowsHtml += '<td style="font-family:\'Orbitron\',sans-serif;font-size:13px;font-weight:700;">' +
+        fmtNum(ind.latest_value) +
+        ' <span style="font-size:10px;color:var(--text-muted);">' +
+        (ind.unit || '') + '</span></td>';
+      rowsHtml += '<td><span class="dir-arrow ' + dClass + '">' +
+        dIcon + ' ' + momStr + '</span></td>';
+      rowsHtml += '<td><span class="sig-tag ' + sigClass + '">' +
+        sigLabel + '</span></td>';
+      rowsHtml += '<td style="font-size:11px;color:var(--text-secondary);">' +
+        contrib + '</td>';
+      rowsHtml += '</tr>';
+    });
+
+    document.getElementById('indicator-table-body').innerHTML = rowsHtml;
+  })();
+
+  // ── Chart Helper ────────────────────────────────────────────
+  function darkOpts(base) {
+    var d = {
+      textStyle: { color: '#667788' },
+      legend: { textStyle: { color: '#8899aa' } },
+      tooltip: {
+        backgroundColor: 'rgba(13,17,23,0.94)',
+        borderColor: '#1e2530',
+        textStyle: { color: '#e0e6f0', fontSize: 11 }
+      }
+    };
+    if (base.xAxis) {
+      var xa = Array.isArray(base.xAxis) ? base.xAxis : [base.xAxis];
+      xa.forEach(function(ax) {
+        if (!ax.axisLine)  ax.axisLine  = { lineStyle: { color: '#334455' } };
+        if (!ax.axisLabel) ax.axisLabel = { color: '#667788', fontSize: 10 };
+        if (!ax.splitLine) ax.splitLine = { show: false };
+      });
+    }
+    if (base.yAxis) {
+      var ya = Array.isArray(base.yAxis) ? base.yAxis : [base.yAxis];
+      ya.forEach(function(ax) {
+        if (!ax.axisLine)  ax.axisLine  = { show: false };
+        if (!ax.axisLabel) ax.axisLabel = { color: '#667788', fontSize: 10 };
+        if (!ax.splitLine) ax.splitLine = { lineStyle: { color: '#1e2530' } };
+      });
+    }
+    return Object.assign({}, d, base);
+  }
+
+  function makeChart(id) {
+    var dom = document.getElementById(id);
+    if (!dom) return null;
+    return echarts.init(dom, null, {
+      devicePixelRatio: window.devicePixelRatio || 2
+    });
+  }
+
+  var chartInstances = {};
+
+  // ════════════════════════════════════════════════════════════
+  // CHART 1: Merrill Lynch Investment Clock
+  // ════════════════════════════════════════════════════════════
+  (function() {
+    var chart = makeChart('chart-merrill');
+    if (!chart) return;
+    chartInstances.merrill = chart;
+
+    var gMin = -2.5;
+    var gMax = 2.5;
+
+    var curX = ML.x != null ? ML.x : 0;
+    var curY = ML.y != null ? ML.y : 0;
+
+    var opt = darkOpts({
+      grid: { left: 55, right: 35, top: 30, bottom: 55 },
+
+      xAxis: {
+        min: gMin, max: gMax,
+        axisLine: { lineStyle: { color: '#334455', width: 2 } },
+        axisLabel: {
+          color: '#667788', fontSize: 10,
+          formatter: function(v) { return v.toFixed(1); }
+        },
+        splitLine: { lineStyle: { color: '#1e2530' } },
+        name: '经济增长 →',
+        nameLocation: 'center', nameGap: 32,
+        nameTextStyle: {
+          fontSize: 11, color: '#8899aa',
+          fontFamily: 'Orbitron', letterSpacing: 1
+        }
+      },
+
+      yAxis: {
+        min: gMin, max: gMax,
+        axisLine: { lineStyle: { color: '#334455', width: 2 } },
+        axisLabel: {
+          color: '#667788', fontSize: 10,
+          formatter: function(v) { return v.toFixed(1); }
+        },
+        splitLine: { lineStyle: { color: '#1e2530' } },
+        name: '通胀 ↑',
+        nameLocation: 'center', nameGap: 40,
+        nameTextStyle: {
+          fontSize: 11, color: '#8899aa',
+          fontFamily: 'Orbitron', letterSpacing: 1
+        }
+      },
+
+      series: [
+        // Quadrant backgrounds via markArea
+        {
+          type: 'scatter',
+          data: [[0, 0]],
+          symbolSize: 0,
+          silent: true,
+          markArea: {
+            silent: true,
+            label: { show: false },
+            data: [
+              // 复苏期: growth>0, inflation<0
+              [{ xAxis: 0, yAxis: 0,
+                 itemStyle: { color: 'rgba(0,230,118,0.06)', borderColor: 'rgba(0,230,118,0.12)', borderWidth: 1, borderType: 'dashed' }
+               }, { xAxis: gMax, yAxis: gMin }],
+              // 过热期: growth>0, inflation>0
+              [{ xAxis: 0, yAxis: 0,
+                 itemStyle: { color: 'rgba(255,215,0,0.05)', borderColor: 'rgba(255,215,0,0.12)', borderWidth: 1, borderType: 'dashed' }
+               }, { xAxis: gMax, yAxis: gMax }],
+              // 滞胀期: growth<0, inflation>0
+              [{ xAxis: 0, yAxis: 0,
+                 itemStyle: { color: 'rgba(255,0,110,0.05)', borderColor: 'rgba(255,0,110,0.12)', borderWidth: 1, borderType: 'dashed' }
+               }, { xAxis: gMin, yAxis: gMax }],
+              // 衰退期: growth<0, inflation<0
+              [{ xAxis: 0, yAxis: 0,
+                 itemStyle: { color: 'rgba(0,212,255,0.05)', borderColor: 'rgba(0,212,255,0.12)', borderWidth: 1, borderType: 'dashed' }
+               }, { xAxis: gMin, yAxis: gMin }]
+            ]
+          }
+        },
+
+        // Quadrant labels
+        {
+          type: 'scatter',
+          symbolSize: 1,
+          silent: true,
+          z: 0,
+          data: [
+            { value: [1.55, -1.55], name: '复苏期' },
+            { value: [1.55, 1.55],  name: '过热期' },
+            { value: [-1.55, 1.55], name: '滞胀期' },
+            { value: [-1.55, -1.55], name: '衰退期' }
+          ],
+          label: {
+            show: true,
+            formatter: function(p) { return p.name; },
+            fontSize: 11, color: '#556677',
+            fontFamily: 'Orbitron', letterSpacing: 2
+          }
+        },
+
+        // Zero crosshair: horizontal
+        {
+          type: 'line',
+          data: [[gMin, 0], [gMax, 0]],
+          silent: true, symbol: 'none',
+          lineStyle: { color: '#334455', type: 'dashed', width: 1 },
+          z: 1
+        },
+
+        // Zero crosshair: vertical
+        {
+          type: 'line',
+          data: [[0, gMin], [0, gMax]],
+          silent: true, symbol: 'none',
+          lineStyle: { color: '#334455', type: 'dashed', width: 1 },
+          z: 1
+        },
+
+        // Current position: pulsing effectScatter
+        {
+          name: '当前位置',
+          type: 'effectScatter',
+          data: [[curX, curY]],
+          symbolSize: 16,
+          showEffectOn: 'render',
+          rippleEffect: {
+            brushType: 'stroke',
+            scale: 4,
+            period: 4,
+            color: '#ffd700'
+          },
+          itemStyle: {
+            color: '#ffd700',
+            shadowBlur: 20,
+            shadowColor: 'rgba(255,215,0,0.6)'
+          },
+          label: {
+            show: true,
+            formatter: '当前位置',
+            position: 'top',
+            fontSize: 11, fontWeight: 700,
+            color: '#ffd700', distance: 14,
+            fontFamily: 'Orbitron', letterSpacing: 1
+          },
+          z: 10,
+          tooltip: {
+            formatter:
+              '<strong>当前定位</strong><br/>' +
+              '经济增长: ' + curX.toFixed(3) + '<br/>' +
+              '通胀水平: ' + curY.toFixed(3) + '<br/>' +
+              (ML.quadrant || '')
+          }
+        },
+
+        // History path: last 4 positions with arrow trail
+        (function() {
+          var traj = ML.trajectory || [];
+          var N = 4;
+          var pts = traj.slice(-N);
+          if (pts.length < 2) return null;
+          var coords = pts.map(function(p) { return [p.x, p.y]; });
+          var dates  = pts.map(function(p) { return p.date ? p.date.substring(0,10) : ''; });
+          return {
+            type: 'effectScatter',
+            data: coords.map(function(c, i) { return { value: c, date: dates[i] }; }),
+            symbolSize: 10,
+            rippleEffect: { brushType: 'stroke', scale: 2, period: 3, color: '#00d4ff' },
+            itemStyle: { color: function(p) { return p.dataIndex === coords.length - 1 ? '#ffd700' : '#00d4ff'; }, shadowBlur: 8, shadowColor: 'rgba(0,212,255,0.5)' },
+            label: { show: true, formatter: function(p) { return (p.data && p.data.date ? p.data.date.substring(5) : ''); }, position: 'top', fontSize: 12, fontWeight: 600, color: '#e0e6f0', distance: 10 },
+            z: 6,
+            tooltip: { trigger: 'item', formatter: function(p) { var d = p.data; if (!d || !d.date) return ''; return '<strong>' + d.date + '</strong><br/>增长 X: ' + d.value[0].toFixed(3) + '<br/>通胀 Y: ' + d.value[1].toFixed(3); } }
+          };
+  // Arrow connectors between history points
+  var arrowSeries = [];
+  for (var i = 0; i < coords.length - 1; i++) {
+    arrowSeries.push({
+      type: 'lines', coordinateSystem: 'cartesian2d', polyline: false,
+      data: [{ coords: [coords[i], coords[i + 1]] }],
+      lineStyle: { color: '#00d4ff', width: 2, opacity: 0.6, curveness: 0 },
+      effect: { show: true, period: i + 3, trailLength: 0.2, symbol: 'arrow', symbolSize: 10 },
+      z: 4
+    });
+  }
+  // Return both the scatter and arrow series
+  return [{
+            type: 'effectScatter',
+            data: coords.map(function(c, i) { return { value: c, date: dates[i] }; }),
+            symbolSize: 10,
+            rippleEffect: { brushType: 'stroke', scale: 2, period: 3, color: '#00d4ff' },
+            itemStyle: { color: function(p) { return p.dataIndex === coords.length - 1 ? '#ffd700' : '#00d4ff'; }, shadowBlur: 8, shadowColor: 'rgba(0,212,255,0.5)' },
+            label: { show: true, formatter: function(p) { return (p.data && p.data.date ? p.data.date.substring(5) : ''); }, position: 'top', fontSize: 12, fontWeight: 600, color: '#e0e6f0', distance: 10 },
+            z: 6,
+            tooltip: { trigger: 'item', formatter: function(p) { var d = p.data; if (!d || !d.date) return ''; return '<strong>' + d.date + '</strong><br/>增长 X: ' + d.value[0].toFixed(3) + '<br/>通胀 Y: ' + d.value[1].toFixed(3); } }
+          }].concat(arrowSeries);
+        })(),
+      ]
+    });
+
+    chart.setOption(opt);
+  })();
+
+  // ════════════════════════════════════════════════════════════
+  // CHART 1.5: Cycle Timeline — Four-Stage Time Series
+  // ════════════════════════════════════════════════════════════
+  (function() {
+    var chart = makeChart('chart-cycle-timeline');
+    if (!chart) return;
+    chartInstances.cycleTimeline = chart;
+
+    var traj = ML.trajectory || [];
+    if (traj.length === 0) {
+      chart.setOption(darkOpts({
+        title: { text: '无轨迹数据', textStyle: { color: '#667788', fontSize: 13 }, left: 'center', top: 'center' }
+      }));
+      return;
+    }
+
+    // Quadrant mapping: level = 4,3,2,1
+    var quadrantNames = {
+      4: '过热期',
+      3: '复苏期',
+      2: '滞胀期',
+      1: '衰退期'
+    };
+
+    var quadrantColors = {
+      4: '#ffd700',  // 过热期 - gold
+      3: '#00e676',  // 复苏期 - green
+      2: '#ff006e',  // 滞胀期 - magenta
+      1: '#00d4ff'   // 衰退期 - cyan
+    };
+
+    var quadrantBgColors = {
+      4: 'rgba(255,215,0,0.08)',
+      3: 'rgba(0,230,118,0.08)',
+      2: 'rgba(255,0,110,0.08)',
+      1: 'rgba(0,212,255,0.08)'
+    };
+
+    var dates = [];
+    var levels = [];
+
+    traj.forEach(function(p) {
+      var qx = p.x || 0;
+      var qy = p.y || 0;
+      var level;
+      if (qx >= 0 && qy >= 0) level = 4;
+      else if (qx >= 0 && qy < 0) level = 3;
+      else if (qx < 0 && qy >= 0) level = 2;
+      else level = 1;
+      dates.push(shortDate(p.date));
+      levels.push(level);
+    });
+
+    // Build markArea bands for each quadrant level
+    var markAreaData = [];
+    var currentLevel = levels[levels.length - 1];
+
+    // Build contiguous segments for background bands
+    var segments = [];
+    var segStart = 0;
+    var segLevel = levels[0];
+    for (var i = 1; i <= levels.length; i++) {
+      if (i === levels.length || levels[i] !== segLevel) {
+        segments.push({ start: segStart, end: i - 1, level: segLevel });
+        if (i < levels.length) {
+          segStart = i;
+          segLevel = levels[i];
+        }
+      }
+    }
+
+    segments.forEach(function(seg) {
+      markAreaData.push([{
+        xAxis: seg.start - 0.45,
+        itemStyle: { color: quadrantBgColors[seg.level] || 'rgba(0,0,0,0)' }
+      }, {
+        xAxis: seg.end + 0.45
+      }]);
+    });
+
+    var opt = darkOpts({
+      grid: { left: 55, right: 35, top: 30, bottom: 55 },
+
+      xAxis: {
+        type: 'category',
+        data: dates,
+        axisLabel: { color: '#667788', fontSize: 9, rotate: 45, interval: Math.max(0, Math.floor(dates.length / 8) - 1) },
+        axisTick: { show: false },
+        axisLine: { lineStyle: { color: '#334455' } },
+        name: '时间',
+        nameLocation: 'center', nameGap: 35,
+        nameTextStyle: { fontSize: 10, color: '#8899aa', fontFamily: 'Orbitron', letterSpacing: 1 }
+      },
+
+      yAxis: {
+        type: 'value',
+        min: 0.4, max: 4.6,
+        interval: 1,
+        axisLabel: {
+          color: '#667788', fontSize: 10,
+          formatter: function(v) {
+            if (v === 4) return '过热期';
+            if (v === 3) return '复苏期';
+            if (v === 2) return '滞胀期';
+            if (v === 1) return '衰退期';
+            return '';
+          }
+        },
+        splitLine: { lineStyle: { color: '#1e2530' } },
+        name: '经济周期象限',
+        nameTextStyle: { fontSize: 10, color: '#667788' }
+      },
+
+      series: [
+        // Background bands via markArea
+        {
+          type: 'scatter',
+          data: [[0, 0]],
+          symbolSize: 0,
+          silent: true,
+          z: 0,
+          markArea: {
+            silent: true,
+            label: { show: false },
+            data: markAreaData
+          }
+        },
+
+        // Step line
+        {
+          name: '周期象限',
+          type: 'line',
+          data: levels,
+          step: 'end',
+          symbol: 'circle',
+          symbolSize: 5,
+          lineStyle: { color: '#00d4ff', width: 2.5 },
+          itemStyle: {
+            color: function(p) {
+              return quadrantColors[p.value] || '#00d4ff';
+            },
+            borderColor: '#131820',
+            borderWidth: 2
+          },
+          z: 2
+        }
+      ],
+
+      tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+          var idx = params[0].dataIndex;
+          var date = dates[idx] || '--';
+          var level = levels[idx];
+          var quadName = quadrantNames[level] || '未知';
+          var t = traj[idx];
+          var html = '<strong>' + date + '</strong><br/>';
+          html += '象限: <span style=\"color:' + (quadrantColors[level] || '#fff') + ';font-weight:700;\">' + quadName + '</span><br/>';
+          if (t) {
+            html += '增长 X: ' + (t.x != null ? t.x.toFixed(3) : '--') + '<br/>';
+            html += '通胀 Y: ' + (t.y != null ? t.y.toFixed(3) : '--');
+          }
+          return html;
+        }
+      },
+
+      legend: {
+        data: ['过热期', '复苏期', '滞胀期', '衰退期'],
+        bottom: 0,
+        textStyle: { fontSize: 10, color: '#8899aa' },
+        orient: 'horizontal',
+        itemWidth: 14, itemHeight: 14,
+        itemGap: 14,
+        icon: 'roundRect'
+      }
+    });
+
+    chart.setOption(opt);
+  })();
+
+  // ════════════════════════════════════════════════════════════
+  // CHART 2: Pring's Six Stages
+  // ════════════════════════════════════════════════════════════
+  (function() {
+    var chart = makeChart('chart-pring');
+    if (!chart) return;
+    chartInstances.pring = chart;
+
+    var stages = [
+      { num: 1, label: '阶段1\n衰退初期',   desc: '仅债券走强',   bondV: 70, stockV: 10, commV: 5 },
+      { num: 2, label: '阶段2\n复苏初期',   desc: '股债双牛',     bondV: 85, stockV: 45, commV: 15 },
+      { num: 3, label: '阶段3\n全面牛市',   desc: '三市场齐涨',   bondV: 88, stockV: 82, commV: 68 },
+      { num: 4, label: '阶段4\n过热初期',   desc: '通胀压力上升', bondV: 38, stockV: 85, commV: 82 },
+      { num: 5, label: '阶段5\n滞胀',       desc: '仅商品走强',   bondV: 12, stockV: 22, commV: 88 },
+      { num: 6, label: '阶段6\n全面衰退',   desc: '避险模式',     bondV: 6,  stockV: 5,  commV: 15 }
+    ];
+
+    var curIdx = pringStageIndex(PR.stage);
+    var isTransition = (PR.stage || '').indexOf('过渡') >= 0;
+
+    var sLabels = stages.map(function(s) { return s.num + '\n' + s.desc; });
+    var bData   = stages.map(function(s) { return s.bondV; });
+    var sData   = stages.map(function(s) { return s.stockV; });
+    var cData   = stages.map(function(s) { return s.commV; });
+
+    var seriesDefs = [];
+
+    // Current stage highlight band
+    seriesDefs.push({
+      type: 'scatter',
+      data: [[curIdx, 50]],
+      symbolSize: 0,
+      silent: true,
+      markArea: {
+        silent: true,
+        data: [[
+          { xAxis: curIdx - 0.42,
+            itemStyle: { color: 'rgba(255,0,110,0.08)', borderColor: 'rgba(255,0,110,0.25)', borderWidth: 1 }
+          },
+          { xAxis: curIdx + 0.42,
+            itemStyle: { color: 'rgba(255,0,110,0.03)' }
+          }
+        ]]
+      }
+    });
+
+    // Transition band (only if in transition)
+    if (isTransition) {
+      seriesDefs.push({
+        type: 'scatter',
+        data: [[curIdx, 50]],
+        symbolSize: 0,
+        silent: true,
+        z: 0,
+        markArea: {
+          silent: true,
+          data: [[
+            { xAxis: curIdx - 0.35,
+              itemStyle: { color: 'rgba(250,178,25,0.06)', borderColor: 'rgba(250,178,25,0.2)', borderWidth: 1, borderType: 'dashed' }
+            },
+            { xAxis: curIdx + 0.35,
+              itemStyle: { color: 'rgba(250,178,25,0.03)' }
+            }
+          ]]
+        }
+      });
+    }
+
+    // Bond line + area
+    seriesDefs.push({
+      name: '债券',
+      type: 'line',
+      data: bData,
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 6,
+      lineStyle: { color: '#3987e5', width: 2 },
+      itemStyle: { color: '#3987e5', borderColor: '#131820', borderWidth: 2 },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(57,135,229,0.12)' },
+          { offset: 1, color: 'rgba(57,135,229,0.0)' }
+        ])
+      },
+      emphasis: { focus: 'series' }
+    });
+
+    // Stock line + area
+    seriesDefs.push({
+      name: '股票',
+      type: 'line',
+      data: sData,
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 6,
+      lineStyle: { color: '#d95926', width: 2 },
+      itemStyle: { color: '#d95926', borderColor: '#131820', borderWidth: 2 },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(217,89,38,0.12)' },
+          { offset: 1, color: 'rgba(217,89,38,0.0)' }
+        ])
+      },
+      emphasis: { focus: 'series' }
+    });
+
+    // Commodity line + area
+    seriesDefs.push({
+      name: '商品',
+      type: 'line',
+      data: cData,
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 6,
+      lineStyle: { color: '#c98500', width: 2 },
+      itemStyle: { color: '#c98500', borderColor: '#131820', borderWidth: 2 },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(201,133,0,0.12)' },
+          { offset: 1, color: 'rgba(201,133,0,0.0)' }
+        ])
+      },
+      emphasis: { focus: 'series' }
+    });
+
+    // Current stage marker (pulsing dot)
+    seriesDefs.push({
+      name: '当前阶段',
+      type: 'effectScatter',
+      data: [[curIdx, 94]],
+      symbolSize: 12,
+      showEffectOn: 'render',
+      rippleEffect: {
+        brushType: 'stroke',
+        scale: 2.5,
+        period: 3,
+        color: '#ff006e'
+      },
+      itemStyle: {
+        color: '#ff006e',
+        shadowBlur: 16,
+        shadowColor: 'rgba(255,0,110,0.5)'
+      },
+      label: {
+        show: true,
+        formatter: '当前',
+        position: 'top',
+        fontSize: 10, fontWeight: 700,
+        color: '#ff006e', distance: 8,
+        fontFamily: 'Orbitron'
+      },
+      z: 10
+    });
+
+    var opt = darkOpts({
+      grid: { left: 50, right: 30, top: 30, bottom: 50 },
+
+      xAxis: {
+        type: 'category',
+        data: sLabels,
+        axisLabel: { color: '#667788', fontSize: 9, lineHeight: 13, interval: 0 },
+        axisTick: { show: false },
+        axisLine: { lineStyle: { color: '#334455' } },
+        name: '普林格六阶段',
+        nameLocation: 'center', nameGap: 35,
+        nameTextStyle: { fontSize: 10, color: '#8899aa', fontFamily: 'Orbitron', letterSpacing: 1 }
+      },
+
+      yAxis: {
+        type: 'value',
+        min: 0, max: 100,
+        axisLabel: { color: '#667788', fontSize: 10 },
+        splitLine: { lineStyle: { color: '#1e2530' } },
+        name: '相对强度',
+        nameTextStyle: { fontSize: 10, color: '#667788' }
+      },
+
+      series: seriesDefs,
+
+      legend: {
+        data: ['债券', '股票', '商品'],
+        bottom: 0,
+        textStyle: { fontSize: 10, color: '#8899aa' },
+        itemWidth: 18, itemHeight: 2
+      },
+
+      tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+          var idx = params[0].dataIndex;
+          var html = '<strong>' + stages[idx].label.replace('\n', ' ') + '</strong><br/>';
+          params.forEach(function(p) {
+            if (['债券', '股票', '商品'].indexOf(p.seriesName) >= 0) {
+              html += p.marker + ' ' + p.seriesName + ': ' + (p.value != null ? p.value : '--') + '<br/>';
+            }
+          });
+          return html;
+        }
+      }
+    });
+
+    chart.setOption(opt);
+  })();
+
+  // ════════════════════════════════════════════════════════════
+  // CHART 2.5: Pring Historical Signal Evolution
+  // ════════════════════════════════════════════════════════════
+  (function() {
+    var chart = makeChart('chart-pring-history');
+    if (!chart) return;
+    chartInstances.pringHistory = chart;
+
+    var traj = ML.trajectory || [];
+    if (traj.length < 2) {
+      chart.setOption(darkOpts({
+        title: { text: '数据不足（需要至少2个轨迹点）', textStyle: { color: '#667788', fontSize: 13 }, left: 'center', top: 'center' }
+      }));
+      return;
+    }
+
+    // Derive bond/stock/commodity signals from consecutive trajectory points
+    var bondData = [];
+    var stockData = [];
+    var commData = [];
+    var xLabels = [];
+
+    for (var i = 1; i < traj.length; i++) {
+      var prev = traj[i - 1];
+      var curr = traj[i];
+      var dx = curr.x - prev.x;
+      var dy = curr.y - prev.y;
+
+      // Bond: dx<0 AND dy<0 → up (3), dx>0 AND dy>0 → down (1), else stable (2)
+      if (dx < 0 && dy < 0) {
+        bondData.push(3);
+      } else if (dx > 0 && dy > 0) {
+        bondData.push(1);
+      } else {
+        bondData.push(2);
+      }
+
+      // Stock: dx > 0.02 → up (3), dx < -0.02 → down (1), else stable (2)
+      if (dx > 0.02) {
+        stockData.push(3);
+      } else if (dx < -0.02) {
+        stockData.push(1);
+      } else {
+        stockData.push(2);
+      }
+
+      // Commodity: dy > 0.02 → up (3), dy < -0.02 → down (1), else stable (2)
+      if (dy > 0.02) {
+        commData.push(3);
+      } else if (dy < -0.02) {
+        commData.push(1);
+      } else {
+        commData.push(2);
+      }
+
+      xLabels.push(shortDate(curr.date));
+    }
+
+    var opt = darkOpts({
+      grid: { left: 60, right: 30, top: 30, bottom: 50 },
+
+      xAxis: {
+        type: 'category',
+        data: xLabels,
+        axisLabel: { color: '#667788', fontSize: 9, rotate: 45 },
+        axisTick: { show: false },
+        axisLine: { lineStyle: { color: '#334455' } },
+        name: '日期',
+        nameLocation: 'center', nameGap: 35,
+        nameTextStyle: { fontSize: 10, color: '#8899aa', fontFamily: 'Orbitron', letterSpacing: 1 }
+      },
+
+      yAxis: {
+        type: 'value',
+        min: 0.5, max: 3.5,
+        interval: 1,
+        axisLabel: {
+          color: '#667788', fontSize: 10,
+          formatter: function(v) {
+            if (v === 1) return '↓ 下行';
+            if (v === 2) return '→ 稳定';
+            if (v === 3) return '↑ 上行';
+            return '';
+          }
+        },
+        splitLine: { lineStyle: { color: '#1e2530' } },
+        name: '市场方向',
+        nameTextStyle: { fontSize: 10, color: '#667788' }
+      },
+
+      series: [
+        {
+          name: '债券',
+          type: 'line',
+          data: bondData,
+          smooth: false,
+          symbol: 'circle',
+          symbolSize: 6,
+          lineStyle: { color: '#3987e5', width: 2 },
+          itemStyle: { color: '#3987e5', borderColor: '#131820', borderWidth: 2 },
+          emphasis: { focus: 'series' }
+        },
+        {
+          name: '股票',
+          type: 'line',
+          data: stockData,
+          smooth: false,
+          symbol: 'diamond',
+          symbolSize: 7,
+          lineStyle: { color: '#d95926', width: 2 },
+          itemStyle: { color: '#d95926', borderColor: '#131820', borderWidth: 2 },
+          emphasis: { focus: 'series' }
+        },
+        {
+          name: '商品',
+          type: 'line',
+          data: commData,
+          smooth: false,
+          symbol: 'triangle',
+          symbolSize: 8,
+          lineStyle: { color: '#c98500', width: 2 },
+          itemStyle: { color: '#c98500', borderColor: '#131820', borderWidth: 2 },
+          emphasis: { focus: 'series' }
+        }
+      ],
+
+      legend: {
+        data: ['债券', '股票', '商品'],
+        bottom: 0,
+        textStyle: { fontSize: 10, color: '#8899aa' },
+        itemWidth: 18, itemHeight: 2
+      },
+
+      tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+          var date = params[0].axisValue;
+          var html = '<strong>' + date + '</strong><br/>';
+          var dirMap = { 1: '↓ 下行', 2: '→ 稳定', 3: '↑ 上行' };
+          params.forEach(function(p) {
+            var dirText = dirMap[p.value] || p.value;
+            html += p.marker + ' ' + p.seriesName + ': ' + dirText + '<br/>';
+          });
+          return html;
+        }
+      }
+    });
+
+    chart.setOption(opt);
+  })();
+
+  // ── Global Resize Handler ─────────────────────────────────
+  window.addEventListener('resize', function() {
+    Object.keys(chartInstances).forEach(function(k) {
+      try { chartInstances[k].resize(); } catch(e) {}
+    });
+  });
+
+})();
+
+
+</script>
+
+</body>
+</html>
