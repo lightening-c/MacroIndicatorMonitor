@@ -156,6 +156,9 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .commentary{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px}
 @media(max-width:900px){.commentary{grid-template-columns:1fr}}
 .cm-card{background:var(--card-bg);backdrop-filter:blur(12px);border:1px solid var(--card-border);border-radius:12px;padding:18px 20px}
+.cm-card.full{grid-column:1/-1}
+.cm-card.full li{line-height:1.9}
+.cm-k{color:var(--gold);font-weight:600}
 .cm-card h3{font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:600;letter-spacing:0.04em;margin-bottom:10px;color:var(--cyan)}
 .cm-card.warn h3{color:#ff9800}
 .cm-card ul{list-style:none;padding:0;margin:0}
@@ -286,7 +289,43 @@ if(m1&&sh&&m1.latest_value!=null&&sh.latest_value!=null&&sh.latest_value<2&&m1.l
 if(!risks.length)risks.push('暂无显著风险信号');
 cards.push('<div class="cm-card warn"><h3>风险与背离</h3><ul>'+risks.map(function(r){return '<li>'+r+'</li>'}).join('')+'</ul></div>');
 cards.push('<div class="cm-note">以上文字由当前数据自动生成，仅供研究参考，不构成投资建议。</div>');
-el.innerHTML=cards.join('')}
+el.innerHTML=cards.join('')+buildPeerCompare(D)}
+function buildPeerCompare(D){var acc=D.accounting||{},ML=D.merrill_lynch||{},PR=D.pring||{},L=acc.latest||{},S=D.summary||{};
+function find(id){var r=null;['leading','coincident','lagging'].forEach(function(c){(D.indicators[c]||[]).forEach(function(i){if(i.id===id)r=i})});return r}
+function sMap(id){var ind=find(id);var m={};if(ind&&ind.ts_data){ind.ts_data.forEach(function(p){if(p.value!=null)m[p.date.slice(0,7)]=p.value})}return m}
+function zOf(id){var m=sMap(id),ks=Object.keys(m).sort();if(ks.length<12)return null;var use=ks.slice(-36),vals=use.map(function(k){return m[k]});var mean=vals.reduce(function(a,b){return a+b},0)/vals.length;var sd=Math.sqrt(vals.reduce(function(a,b){return a+(b-mean)*(b-mean)},0)/vals.length);if(!sd)return null;return (vals[vals.length-1]-mean)/sd}
+function avgZ(ids){var zs=ids.map(zOf).filter(function(v){return v!=null});if(!zs.length)return null;return zs.reduce(function(a,b){return a+b},0)/zs.length}
+function f2(v){return v==null?'--':(v>0?'+':'')+Number(v).toFixed(2)}
+function rocOf(id,n){var m=sMap(id),ks=Object.keys(m).sort();if(ks.length<=n)return null;var a=m[ks[ks.length-1]],b=m[ks[ks.length-1-n]];if(a==null||b==null||!b)return null;return (a-b)/Math.abs(b)*100}
+var gz=avgZ(['industrial_production','pmi_manufacturing','gdp_growth']);
+var iz=avgZ(['cpi','ppi']);
+var mq=gz==null||iz==null?'--':(gz>=0?(iz>=0?'过热期':'复苏期'):(iz>=0?'滞胀期':'衰退期'));
+var same=(mq!=='--'&&ML.quadrant&&mq===ML.quadrant);
+var mlReason=same?'两套方法结论一致：增长与通胀的相对位置没有落在阈值边界附近，结论稳健。':'差异来自坐标构造——本面板用绝对阈值打分（PMI 以 50 为中性、CPI 以 2% 为中性），市场口径用近 36 个月滚动 z 分数；指标处在长期均值附近时，两种方法容易给出不同象限。';
+var inv=find('inventory_growth'),pf=find('industrial_profit');
+var invCh=inv&&inv.mom_change!=null?inv.mom_change:null;
+var pfCh=pf&&pf.mom_change!=null?pf.mom_change:null;
+var invQ='--';if(invCh!=null&&pfCh!=null){invQ=invCh>0?(pfCh>0?'主动补库':'被动补库'):(pfCh>0?'被动去库':'主动去库')}
+var gapInd=find('m1_m2_gap'),tsf=find('tsf_rolling_yoy');
+var creditTxt='本面板看 M1-M2 剪刀差 '+(gapInd?fmtNum(gapInd.latest_value,2)+'pp':'--')+'；市场常用社融存量同比，现有数据源只有滚动 12 个月增量同比 '+(tsf?fmtNum(tsf.latest_value,2)+'%':'--')+'。';
+var ci=(D.composite_indices&&D.composite_indices.leading)||[];
+var roc6=null;if(ci.length>=7){var a=ci[ci.length-1].value,b=ci[ci.length-7].value;if(b!=null&&a!=null)roc6=a-b}
+var leadTxt='本面板领先信号 '+(S.leading_score>0?'偏强':(S.leading_score<0?'偏弱':'中性'))+'（改善 '+(S.leading_improving||0)+' / 恶化 '+(S.leading_deteriorating||0)+'）；市场常用的 6 个月变化率口径为 '+(roc6==null?'--':f2(roc6))+'。';
+var bondRoc=rocOf('bond_yield_10y',6),stockRoc=rocOf('sh_index',6),comRoc=rocOf('ppi',6);
+var bondMkt=bondRoc==null?'--':(bondRoc<0?'强':'弱');
+var stockMkt=stockRoc==null?'--':(stockRoc>0?'强':'弱');
+var comMkt=comRoc==null?'--':(comRoc>0?'强':'弱');
+var pringTxt='本面板 债 '+(PR.bond_signal||'--')+' / 股 '+(PR.stock_signal||'--')+' / 商 '+(PR.commodity_signal||'--')+'；6 个月动量口径（债券按收益率反向）为 债 '+bondMkt+' / 股 '+stockMkt+' / 商 '+comMkt+'。';
+var rows=[
+['美林时钟','本面板 <b>'+(ML.quadrant||'--')+'</b>；市场 z 分数口径 <b>'+mq+'</b>（增长 z '+f2(gz)+'，通胀 z '+f2(iz)+'）',mlReason],
+['库存周期','四象限口径：<b>'+invQ+'</b>（存货单月 '+(invCh==null?'--':f2(invCh))+'，利润单月 '+(pfCh==null?'--':f2(pfCh))+'）；本面板缺口判断：'+(L.gap==null?'--':(Math.abs(L.gap)>0.3?(L.gap>0?'生产强于需求':'需求强于生产'):'大致平衡')),'库存四象限看同比变化方向，缺口看水平与标准化差值；一个描述阶段，一个描述失衡程度。'],
+['信用条件',creditTxt,'口径差异：社融存量同比 vs 滚动 12 个月增量同比，且社融源数据滞后约 7 个月，本面板已标记陈旧并剔除合成。'],
+['领先动能',leadTxt,'均线交叉在拐点附近容易反复，6 个月变化率更平滑；两者方向一致时置信度更高。'],
+['普林格',pringTxt,'债券代理为 10Y 国债收益率并做反向处理，股票用上证指数，商品用 PPI；差异主要来自动量窗口与均线平滑。']];
+var h='<div class="cm-card full"><h3>同行口径对照与差异归因</h3><ul>';
+rows.forEach(function(r){h+='<li><span class="cm-k">'+r[0]+'</span>：'+r[1]+'<br><span style="color:var(--text-dim);font-size:0.74rem;">归因：'+r[2]+'</span></li>'});
+h+='<li style="color:var(--text-dim);font-size:0.74rem;">说明：以上"市场口径"是按业内常用算法在同一套数据上复算，不代表具体机构观点；不同机构在阈值、窗口和指标选择上仍有差异。</li></ul></div>';
+return h}
 function buildCycleCards(D){var ml=D.merrill_lynch||{};var mh='<h3 style="color:'+okColor()+';">美林时钟 Merrill Lynch Clock</h3>';mh+='<div class="ml-info"><span>象限：</span><span class="ml-quadrant">'+(ml.quadrant||'--')+'</span></div>';mh+='<div class="ml-info"><span>增长 X：</span>'+fmtNum(ml.x,3)+' · <span>通胀 Y：</span>'+fmtNum(ml.y,3)+'</div>';mh+='<div class="ml-allocation">'+(ml.advice||'--')+'</div>';mh+='<div class="ml-info" style="margin-top:10px;"><span>资产配置：</span>'+(ml.asset_allocation||'--')+'</div>';document.getElementById('merrillCard').innerHTML=mh;var pr=D.pring||{};var ph='<h3 style="color:#00d4ff;">普林格周期 Pring Cycle</h3>';ph+='<div class="ml-info"><span>阶段：</span><strong>'+(pr.stage||'--')+'</strong></div>';ph+='<div class="ml-info" style="font-size:0.75rem;color:#8899aa;">'+(pr.description||'')+'</div>';ph+='<div class="pring-signals">';function ps(l,s,i,v){var sc2=s||'stable';var ar=sc2==='up'?'▲':sc2==='down'?'▼':'→';var tx=sc2==='up'?'看多':sc2==='down'?'看空':'中性';return'<div class="pring-sig"><div class="sig-label">'+l+' ('+(i||'')+')</div><div class="sig-val">'+fmtNum(v,2)+'</div><div class="sig-arrow '+sc2+'">'+ar+' '+tx+'</div></div>'}ph+=ps('债券',pr.bond_signal,pr.bond_indicator,pr.bond_proxy_value);ph+=ps('股票',pr.stock_signal,pr.stock_indicator,pr.stock_proxy_value);ph+=ps('商品',pr.commodity_signal,pr.commodity_indicator,pr.commodity_proxy_value);ph+='</div>';document.getElementById('pringCard').innerHTML=ph;var cp=D.cycle_phase||{};var s=D.summary||{};var dh='<h3 style="color:#ff006e;">一致性诊断 Diagnosis</h3>';dh+='<div class="ml-info"><span>周期阶段：</span><strong>'+(cp.phase||'--')+'</strong></div>';dh+='<div class="ml-info" style="font-size:0.75rem;color:#8899aa;margin-bottom:8px;">'+(cp.description||'')+'</div>';dh+='<div class="diag-row"><span class="diag-label">领先指标方向</span><span class="diag-val '+(cp.leading_majority||'')+'">'+dirLabel(cp.leading_majority)+'</span></div>';dh+='<div class="diag-row"><span class="diag-label">同步指标方向</span><span class="diag-val '+(cp.coincident_majority||'')+'">'+dirLabel(cp.coincident_majority)+'</span></div>';dh+='<div class="diag-row"><span class="diag-label">滞后指标方向</span><span class="diag-val '+(cp.lagging_majority||'')+'">'+dirLabel(cp.lagging_majority)+'</span></div>';dh+='<div class="summary-stats">';dh+='<span class="stat-chip good">领先改善 '+(s.leading_improving||0)+'</span>';dh+='<span class="stat-chip bad">领先恶化 '+(s.leading_deteriorating||0)+'</span>';dh+='<span class="stat-chip good">同步改善 '+(s.coincident_improving||0)+'</span>';dh+='<span class="stat-chip bad">同步恶化 '+(s.coincident_deteriorating||0)+'</span>';dh+='</div>';document.getElementById('diagCard').innerHTML=dh}
 function initApp(D){document.getElementById('updateTime').textContent=D.update_time||'--';var cycleBadge=document.getElementById('cycleBadge');cycleBadge.style.display='none';var H=D.data_health||{};var hb=document.getElementById('healthBadge');if(hb){if(H.stale_count){hb.className='health-badge warn';hb.textContent='数据陈旧 '+H.stale_count+' 项';hb.title=(H.stale||[]).map(function(x){return x.name+' · 最新 '+x.latest_date+'（'+x.age_days+' 天前）'}).join('\n')}else{hb.className='health-badge';hb.textContent='数据完整';hb.title=''}};function tick(){var now=new Date();document.getElementById('liveClock').textContent=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0')}tick();setInterval(tick,1000);buildKpiRow(D);buildIndicatorGrid(D);initToolbar();initGroupMode();initColorSwap();buildTrendTab(D);buildAccounting(D);buildCommentary(D);buildHeatmap(D);buildComposite(D);buildDecomp(D);buildCycleCards(D);document.querySelectorAll('.tab-btn').forEach(function(btn){btn.addEventListener('click',function(){var tabId=this.getAttribute('data-tab');document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});this.classList.add('active');document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active')});document.getElementById(tabId).classList.add('active');setTimeout(function(){resizeAll()},150)})});window.addEventListener('resize',function(){resizeAll()})}
 window.triggerUpdate=function(){var b=document.getElementById('syncBtn');if(!b)return;if(location.protocol==='file:'){b.textContent='需启动服务';setTimeout(function(){b.textContent='同步更新'},3000);return;}b.disabled=true;b.textContent='更新中...';b.classList.add('updating');fetch('/api/update',{method:'POST'}).then(function(r){return r.json()}).then(function(d){if(d.ok){b.textContent='已启动';setTimeout(function(){b.textContent='同步更新';b.classList.remove('updating');b.disabled=false;pollUpdateStatus()},2000)}else{b.textContent=d.message||'失败';b.classList.remove('updating');b.disabled=false}}).catch(function(e){b.textContent='连接失败';b.classList.remove('updating');b.disabled=false})};
