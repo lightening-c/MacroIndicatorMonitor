@@ -107,8 +107,9 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         print(f"[{datetime.now().strftime('%H:%M:%S')}] {args[0]}")
 
 
-class SingleInstanceHTTPServer(http.server.HTTPServer):
+class SingleInstanceHTTPServer(http.server.ThreadingHTTPServer):
     allow_reuse_address = False
+    daemon_threads = True
 
 
 def port_in_use(port):
