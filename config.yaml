@@ -92,6 +92,15 @@ indicators:
       description: 大宗商品期货综合指数, 领先PPI 1-3个月
       akshare_func: futures_index_ccidx
 
+    - id: house_sales_area
+      name: 商品房销售面积增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 新建商品房销售面积累计同比, 地产销售的先行信号
+      akshare_func: macro_china_nbs_nation
+      akshare_params: {kind: 月度数据, path: "房地产>新建商品房销售面积", row: "新建商品房销售面积累计增长(%)"}
+
   coincident:
     - id: industrial_production
       name: 工业增加值增速
@@ -175,6 +184,15 @@ indicators:
       akshare_func: macro_china_nbs_nation
       akshare_params: {kind: 季度数据, path: "人民生活>全国居民人均收入情况", row: "居民人均可支配收入累计增长(%)"}
 
+    - id: consumption_expenditure
+      name: 居民人均消费支出增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 季度
+      description: 全国居民人均消费支出累计同比, 支出法消费分项的居民口径
+      akshare_func: macro_china_nbs_nation
+      akshare_params: {kind: 季度数据, path: "人民生活>全国居民人均支出情况", row: "居民人均消费支出累计增长(%)"}
+
   lagging:
     - id: cpi
       name: CPI
@@ -231,6 +249,15 @@ indicators:
       frequency: 月度
       description: 70城房价同比, 价格调整滞后于销售与投资
       akshare_func: macro_china_new_house_price
+
+    - id: realestate_investment
+      name: 房地产开发投资增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 房地产开发投资累计同比, 地产投资对销售与政策的滞后确认
+      akshare_func: macro_china_nbs_nation
+      akshare_params: {kind: 月度数据, path: "房地产>房地产开发投资情况", row: "房地产投资_累计增长(%)"}
 
     - id: industrial_profit
       name: 工业企业利润增速
@@ -300,6 +327,9 @@ calibers:
   trade_balance: 支出法
   real_estate_dev: 支出法
   new_house_price: 支出法
+  consumption_expenditure: 支出法
+  realestate_investment: 支出法
+  house_sales_area: 支出法
   fiscal_revenue: 收入法
   industrial_profit: 收入法
   residential_income: 收入法
@@ -323,7 +353,33 @@ calibers:
 # 核算视角勾稽分组（生产法与支出法对照）
 accounting:
   production: [industrial_production, services_production_index, electricity]
-  demand: [retail_sales, fixed_asset_investment, exports_yoy]
+  demand: [retail_sales, consumption_expenditure, fixed_asset_investment, realestate_investment, exports_yoy]
   income: [industrial_profit, residential_income, fiscal_revenue]
   inventory: inventory_growth
   gap_window_months: 60
+  tree:
+    - id: production
+      label: 生产法
+      groups:
+        - label: 工业
+          indicators: [industrial_production, electricity]
+        - label: 服务业
+          indicators: [services_production_index]
+    - id: demand
+      label: 支出法
+      groups:
+        - label: 消费
+          indicators: [retail_sales, consumption_expenditure]
+        - label: 投资
+          indicators: [fixed_asset_investment, realestate_investment]
+        - label: 净出口
+          indicators: [exports_yoy, trade_balance]
+    - id: income
+      label: 收入法
+      groups:
+        - label: 居民
+          indicators: [residential_income]
+        - label: 企业
+          indicators: [industrial_profit]
+        - label: 政府
+          indicators: [fiscal_revenue]

@@ -47,6 +47,9 @@ COLUMN_HINTS = {
     "residential_income":    {"date_col": "日期",     "val_col": "居民人均可支配收入增速"},
     "industrial_profit":     {"date_col": "日期",     "val_col": "工业企业利润增速"},
     "inventory_growth":      {"date_col": "日期",     "val_col": "产成品存货增速"},
+    "consumption_expenditure": {"date_col": "日期",   "val_col": "居民人均消费支出增速"},
+    "realestate_investment": {"date_col": "日期",     "val_col": "房地产开发投资增速"},
+    "house_sales_area":      {"date_col": "日期",     "val_col": "商品房销售面积增速"},
     "bond_yield_10y":        {"date_col": "日期",     "val_col": "10年国债收益率"},
     "tsf_rolling_yoy":       {"date_col": "日期",     "val_col": "社融滚动增量同比"},
     "exports_yoy":           {"date_col": "日期",     "val_col": "出口增速"},
@@ -561,16 +564,69 @@ def compute_accounting(entries_by_id, ind_values, ind_dates, acc_cfg, window_mon
     def last(series):
         return round(float(series.iloc[-1]), 4) if series is not None and len(series) else None
 
+    # 方法层统一取"共同可用月份"的值，保证与缺口、汇总块口径一致
+    income_last = None
+    if "income" in df.columns:
+        inc_ok = df["income"].dropna()
+        income_last = round(float(inc_ok.iloc[-1]), 4) if len(inc_ok) else None
+    latest_by_method = {
+        "production": last(df["production"]),
+        "demand": last(df["demand"]),
+        "income": income_last,
+    }
+    as_of = df.index[-1].strftime("%Y-%m-%d") if len(df) else None
+
+    # 分层结构：方法 -> 分项 -> 指标
+    tree = []
+    for method in acc_cfg.get("tree", []):
+        method_ids = []
+        groups_out = []
+        for g in method.get("groups", []):
+            ids = g.get("indicators", [])
+            method_ids += ids
+            gz = composite(ids)
+            items = []
+            for iid in ids:
+                e = entries_by_id.get(iid) or {}
+                items.append({
+                    "id": iid,
+                    "name": e.get("name", iid),
+                    "value": e.get("latest_value"),
+                    "unit": e.get("unit", ""),
+                    "date": e.get("latest_date"),
+                    "signal": e.get("signal"),
+                    "stale": bool(e.get("stale")),
+                })
+            groups_out.append({
+                "label": g.get("label", ""),
+                "z": last(gz),
+                "items": items,
+            })
+        mz = {"production": prod, "demand": dem, "income": inc}.get(method.get("id"))
+        if mz is None:
+            mz = composite(method_ids)
+        mz_val = latest_by_method.get(method.get("id"))
+        if mz_val is None:
+            mz_val = last(mz)
+        tree.append({
+            "id": method.get("id", ""),
+            "label": method.get("label", ""),
+            "z": mz_val,
+            "groups": groups_out,
+        })
+
     return {
         "available": True,
+        "tree": tree,
         "production": points(df["production"]),
         "demand": points(df["demand"]),
         "income": points(df["income"]) if "income" in df.columns else [],
         "gap": points(df["gap"]),
         "latest": {
-            "production": last(df["production"]),
-            "demand": last(df["demand"]),
-            "income": last(df["income"]) if "income" in df.columns else None,
+            "as_of": as_of,
+            "production": latest_by_method.get("production"),
+            "demand": latest_by_method.get("demand"),
+            "income": latest_by_method.get("income"),
             "gap": round(gap_last, 4),
             "inventory": round(inv_last, 4) if inv_last is not None else None,
             "inventory_change": round(inv_chg, 4) if inv_chg is not None else None,
