@@ -124,9 +124,9 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 <canvas id="particleCanvas"></canvas>
 <div class="scanlines"></div>
 <div class="app-container">
-<header class="header"><div class="header-left"><h1>宏观经济数据跟踪面板</h1><div class="subtitle">中国宏观经济监测系统 · 领先/同步/滞后指标分析</div></div><div class="header-right"><div id="liveClock"></div><div class="cycle-badge" id="cycleBadge">--</div><button id="syncBtn" class="sync-btn" onclick="triggerUpdate()">同步更新</button><a href="cycle_report.html" class="report-link">周期报告</a></div></header>
+<header class="header"><div class="header-left"><h1>宏观经济指标</h1><div class="subtitle">中国宏观经济监测系统 · 领先/同步/滞后指标分析</div></div><div class="header-right"><div id="liveClock"></div><div class="cycle-badge" id="cycleBadge">--</div><button id="syncBtn" class="sync-btn" onclick="triggerUpdate()">同步更新</button><a href="cycle_report.html" class="report-link">周期报告</a></div></header>
 <div class="kpi-row" id="kpiRow"></div>
-<div class="section-title">领先 / 同步 / 滞后 指标矩阵</div>
+<div class="section-title">宏观经济指标</div>
 <div class="indicator-grid" id="indicatorGrid"></div>
 <div class="tabs-section">
 <div class="tab-nav"><button class="tab-btn active" data-tab="tab0">趋势对比</button><button class="tab-btn" data-tab="tab1">相关性热力图</button><button class="tab-btn" data-tab="tab2">综合领先指数</button><button class="tab-btn" data-tab="tab3">时序分解</button></div>
@@ -137,7 +137,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 </div>
 <div class="section-title">周期分析总览</div>
 <div class="cycle-cards"><div class="cycle-card" id="merrillCard"></div><div class="cycle-card" id="pringCard"></div><div class="cycle-card" id="diagCard"></div></div>
-<footer class="footer"><p>数据来源：国家统计局 · 中国人民银行 · 海关总署 · 交通运输部 · 财政部 · 中国外汇交易中心 · 上交所 · 深交所</p><p>更新时间：<span id="updateTime">--</span> · 本面板仅供研究参考，不构成投资建议</p></footer>
+<footer class="footer"><p>数据来源：国家统计局 · 中国人民银行 · 海关总署 · 交通运输部 · 财政部 · 中国外汇交易中心 · 上交所 · 深交所 · 中证指数公司</p><p>更新时间：<span id="updateTime">--</span> · 本面板仅供研究参考，不构成投资建议</p></footer>
 </div>
 <script>(function(){var c=document.getElementById('particleCanvas');var t=c.getContext('2d');var p=[];function rs(){c.width=window.innerWidth;c.height=window.innerHeight}rs();window.addEventListener('resize',rs);for(var i=0;i<60;i++){p.push({x:Math.random()*(c.width||window.innerWidth),y:Math.random()*(c.height||window.innerHeight),vx:(Math.random()-0.5)*0.4,vy:(Math.random()-0.5)*0.4,r:Math.random()*1.5+0.5,a:Math.random()*0.45+0.2})}function dr(){if(!c.width)c.width=window.innerWidth;if(!c.height)c.height=window.innerHeight;t.clearRect(0,0,c.width,c.height);for(var i=0;i<p.length;i++){var pt=p[i];pt.x+=pt.vx;pt.y+=pt.vy;if(pt.x<0)pt.x=c.width;if(pt.x>c.width)pt.x=0;if(pt.y<0)pt.y=c.height;if(pt.y>c.height)pt.y=0;t.beginPath();t.arc(pt.x,pt.y,pt.r,0,Math.PI*2);t.fillStyle='rgba(0,212,255,'+pt.a+')';t.fill()}for(var i=0;i<p.length;i++){for(var j=i+1;j<p.length;j++){var dx=p[i].x-p[j].x;var dy=p[i].y-p[j].y;var d=Math.sqrt(dx*dx+dy*dy);if(d<150){t.beginPath();t.moveTo(p[i].x,p[i].y);t.lineTo(p[j].x,p[j].y);t.strokeStyle='rgba(0,212,255,'+(0.06*(1-d/150))+')';t.lineWidth=0.5;t.stroke()}}}requestAnimationFrame(dr)}dr()})();</script>
 <script>

@@ -13,7 +13,7 @@ indicators:
       source: 中国人民银行
       frequency: 月度
       description: 广义货币供应量同比, 流动性先于实体3-6个月
-      akshare_func: macro_china_money_supply
+      akshare_func: macro_china_money_supply_em
 
     - id: social_financing
       name: 新增人民币信贷
@@ -29,7 +29,7 @@ indicators:
       source: 全国银行间同业拆借中心
       frequency: 每日
       description: 银行间流动性最敏感的先行信号
-      akshare_func: macro_china_shibor_all
+      akshare_func: macro_china_shibor
 
     # ── 信心/预期先行 ──
     - id: pmi_manufacturing
@@ -46,7 +46,7 @@ indicators:
       source: 国家统计局
       frequency: 月度
       description: 消费者对未来收入和经济的展望
-      akshare_func: macro_china_xfzxx
+      akshare_func: macro_china_consumer_confidence
 
     # ── 资产价格/风险偏好先行 ──
     - id: sh_index
@@ -90,7 +90,7 @@ indicators:
       source: 国家统计局
       frequency: 月度
       description: 生产端核心同步指标
-      akshare_func: macro_china_industrial_production_yoy
+      akshare_func: macro_china_industrial_value_added
 
     - id: gdp_growth
       name: GDP增速
@@ -114,7 +114,7 @@ indicators:
       source: 国家统计局
       frequency: 月度
       description: 投资同步指标
-      akshare_func: macro_china_gdzctz
+      akshare_func: macro_china_fixed_asset_investment
 
     - id: electricity
       name: 全社会用电量增速
@@ -130,7 +130,7 @@ indicators:
       source: 海关总署
       frequency: 月度
       description: 外需同步反映
-      akshare_func: macro_china_exports_yoy
+      akshare_func: macro_china_customs_trade
 
     - id: fiscal_revenue
       name: 财政收入增速
@@ -138,7 +138,7 @@ indicators:
       source: 财政部
       frequency: 月度
       description: 税收与经济周期同步
-      akshare_func: macro_china_czsr
+      akshare_func: macro_china_fiscal_revenue
 
   lagging:
     - id: cpi
@@ -171,7 +171,7 @@ indicators:
       source: 海关总署
       frequency: 月度
       description: 进出口调整滞后于经济变化
-      akshare_func: macro_china_trade_balance
+      akshare_func: macro_china_customs_trade
 
     - id: lpr
       name: LPR 1年期
@@ -195,7 +195,7 @@ indicators:
       source: 中国人民银行
       frequency: 月度
       description: 国际收支累积结果, 滞后反映
-      akshare_func: macro_china_fx_reserves_yearly
+      akshare_func: macro_china_fx_gold_em
 
 # 图表配置
 chart:

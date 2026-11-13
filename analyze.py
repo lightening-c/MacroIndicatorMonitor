@@ -37,7 +37,7 @@ COLUMN_HINTS = {
     "new_house_price":       {"date_col": "日期",     "val_col": "新建住宅价格指数"},
     "sh_index":              {"date_col": "日期",     "val_col": "收盘价"},
     "sz_index":              {"date_col": "日期",     "val_col": "收盘价"},
-    "industrial_production": {"date_col": "日期",     "val_col": "今值"},
+    "industrial_production": {"date_col": "日期",     "val_col": "工业增加值增速"},
     "fixed_asset_investment":{"date_col": "日期",     "val_col": "固定资产投资增速"},
     "retail_sales":          {"date_col": "月份",     "val_col": "同比增长"},
     "electricity":           {"date_col": "统计时间", "val_col": "全社会用电量同比"},
@@ -49,7 +49,7 @@ COLUMN_HINTS = {
     "cpi":                   {"date_col": "月份",     "val_col": "全国-同比增长"},
     "ppi":                   {"date_col": "月份",     "val_col": "当月同比增长"},
     "unemployment":          {"date_col": "date",     "val_col": "value"},
-    "trade_balance":         {"date_col": "日期",     "val_col": "今值"},
+    "trade_balance":         {"date_col": "日期",     "val_col": "贸易差额"},
     "lpr":                   {"date_col": "TRADE_DATE", "val_col": "RATE_1"},
     "reserve_ratio":         {"date_col": "日期",     "val_col": "存款准备金率"},
     "real_estate_dev":       {"date_col": "日期",     "val_col": "房地产投资增速"},
@@ -106,7 +106,8 @@ def parse_date(val):
     m = re.match(r'^(\d{4})年第(\d)-(\d)季度$', s)
     if m:
         try:
-            return pd.to_datetime(f"{m.group(1)}-Q{m.group(2)}")
+            # 累计口径如"2026年第1-3季度"应落在第3季度(Q3)
+            return pd.to_datetime(f"{m.group(1)}-Q{m.group(3)}")
         except Exception:
             pass
 
@@ -490,46 +491,110 @@ def compute_composite_index(ind_entries):
 # Merrill Lynch Clock
 # ---------------------------------------------------------------------------
 def compute_merrill_lynch(growth_ts_list, infl_ts_list):
-    def _combine(ts_list):
-        merged = {}
-        for ts in ts_list:
-            for pt in ts:
-                if pt["value"] is not None:
-                    # Align to month level: YYYY-MM
-                    month_key = pt["date"][:7]
-                    merged.setdefault(month_key, []).append(pt["value"])
-        dates = sorted(merged)
-        vals = [float(np.mean(merged[d])) for d in dates]
-        return dates, vals
+    """
+    Merrill Lynch Investment Clock — absolute-threshold scoring.
 
-    gd, gv = _combine(growth_ts_list)
-    id_, iv = _combine(infl_ts_list)
+    Instead of Z-score (which can flag "overheat" when CPI ticks from
+    0 % to 1 % – still very low in absolute terms), each indicator is
+    scored against fixed economic thresholds:
 
-    if len(gv) < 6 or len(iv) < 6:
+    Growth (X-axis):
+      PMI:         50 = 0,  above/below scaled linearly (52 → +1, 48 → -1)
+      IP (yoy %):  6 % = 0,  above/below scaled linearly (8 → +1, 4 → -1)
+      GDP (yoy %): 5.5 % = 0,   8 → +1,  3 → -1
+
+    Inflation (Y-axis):
+      CPI (yoy %):  2 % = 0,  3 → +1,  0 → -1
+      PPI (yoy %):  0 % = 0,  4 → +1, -4 → -1
+
+    An indicator that falls between thresholds is linearly interpolated.
+    The final X / Y are the simple average of each group, clamped to [-2, 2].
+    """
+    THRESH = {
+        "pmi_manufacturing":      (50.0, 2.0),   # neutral 50, ±1 per 2 pts
+        "industrial_production":  (6.0,  2.0),   # neutral  6 %, ±1 per 2 %
+        "gdp_growth":             (5.5,  2.5),   # neutral 5.5 %, ±1 per 2.5 %
+        "cpi":                    (2.0,  1.0),   # neutral  2 %, ±1 per 1 %
+        "ppi":                    (0.0,  4.0),   # neutral  0 %, ±1 per 4 %
+    }
+
+    def _score(val, neutral, width):
+        return max(-2.0, min(2.0, (val - neutral) / width))
+
+    # ------------------------------------------------------------------
+    # Per-indicator monthly series – each ts_list element is
+    # [{date: "YYYY-MM-DD", value: ...}, ...] for one indicator.
+    # They may have different date ranges; build {date: value} lookups.
+    # ------------------------------------------------------------------
+    G_IDS = ["pmi_manufacturing", "industrial_production", "gdp_growth"]
+    I_IDS = ["cpi", "ppi"]
+    # CPI is the core consumer inflation gauge; PPI is upstream and
+    # often diverges (e.g. PPI +4 % while CPI +1 %).  Weighted 70/30
+    # so that CPI dominates the Y-axis signal.
+    G_WEIGHTS = {"pmi_manufacturing": 0.3, "industrial_production": 0.4, "gdp_growth": 0.3}
+    I_WEIGHTS = {"cpi": 0.7, "ppi": 0.3}
+
+    # Build monthly lookups: indicator_id → {YYYY-MM: value}
+    def _monthly_lookup(ts):
+        """ts is a list of {date, value} dicts."""
+        out = {}
+        for pt in ts:
+            v = pt["value"]
+            if v is not None:
+                out.setdefault(pt["date"][:7], []).append(v)
+        return {k: float(np.mean(vals)) for k, vals in out.items()}
+
+    g_lookups = {}
+    for idx, gid in enumerate(G_IDS):
+        if idx < len(growth_ts_list):
+            g_lookups[gid] = _monthly_lookup(growth_ts_list[idx])
+
+    i_lookups = {}
+    for idx, iid in enumerate(I_IDS):
+        if idx < len(infl_ts_list):
+            i_lookups[iid] = _monthly_lookup(infl_ts_list[idx])
+
+    # Collect all months to build a common time axis
+    all_months = set()
+    for lu in list(g_lookups.values()) + list(i_lookups.values()):
+        all_months |= set(lu.keys())
+    months = sorted(all_months)
+
+    if len(months) < 24:
         return {"x": 0, "y": 0, "quadrant": "数据不足",
-                "asset_allocation": "-", "advice": "数据不足，无法计算美林时钟。",
+                "asset_allocation": "-", "advice": "历史数据不足（需≥24个月），无法计算美林时钟。",
                 "trajectory": []}
 
-    # Align growth and inflation to common month range
-    common_dates = sorted(set(gd) & set(id_))
-    if len(common_dates) < 6:
+    # --- Current position ---
+    def _latest_score(ind_id, lookups):
+        if ind_id not in lookups or ind_id not in THRESH:
+            return None
+        lu = lookups[ind_id]
+        if not lu:
+            return None
+        latest_m = max(lu.keys())
+        neutral, width = THRESH[ind_id]
+        return _score(lu[latest_m], neutral, width)
+
+    g_parts = {}
+    for gid in G_IDS:
+        s = _latest_score(gid, g_lookups)
+        if s is not None:
+            g_parts[gid] = s
+    i_parts = {}
+    for iid in I_IDS:
+        s = _latest_score(iid, i_lookups)
+        if s is not None:
+            i_parts[iid] = s
+
+    if not g_parts or not i_parts:
         return {"x": 0, "y": 0, "quadrant": "数据不足",
-                "asset_allocation": "-", "advice": "数据不足，无法计算美林时钟。",
+                "asset_allocation": "-", "advice": "增长或通胀指标数据不足。",
                 "trajectory": []}
 
-    g_aligned = [gv[gd.index(d)] for d in common_dates]
-    i_aligned = [iv[id_.index(d)] for d in common_dates]
-
-    gs = pd.Series(g_aligned)
-    is_ = pd.Series(i_aligned)
-    w = min(12, len(gs))
-    gm = gs.rolling(w, min_periods=6).mean().iloc[-1]
-    gsd = max(gs.rolling(w, min_periods=6).std().iloc[-1], 0.01)
-    im = is_.rolling(w, min_periods=6).mean().iloc[-1]
-    isd = max(is_.rolling(w, min_periods=6).std().iloc[-1], 0.01)
-
-    x = max(-2.0, min(2.0, (gs.iloc[-1] - gm) / gsd))
-    y = max(-2.0, min(2.0, (is_.iloc[-1] - im) / isd))
+    # Weighted: IP → 0.4, PMI → 0.3, GDP → 0.3  |  CPI → 0.7, PPI → 0.3
+    x = max(-2.0, min(2.0, sum(G_WEIGHTS[k] * v for k, v in g_parts.items())))
+    y = max(-2.0, min(2.0, sum(I_WEIGHTS[k] * v for k, v in i_parts.items())))
 
     if x >= 0 and y >= 0:
         quad, alloc, adv = ("过热期", "商品 > 股票 > 现金 > 债券",
@@ -544,21 +609,34 @@ def compute_merrill_lynch(growth_ts_list, infl_ts_list):
         quad, alloc, adv = ("衰退期", "债券 > 现金 > 股票 > 商品",
                             "增长疲弱+通缩压力，债券表现最佳，央行可能降息刺激经济")
 
+    # --- Trajectory ---
     trajectory = []
-    min_len = min(len(gs), len(is_))
-    for off in range(6, min_len):
-        sl_g = gs.iloc[:off + 1]
-        sl_i = is_.iloc[:off + 1]
-        gw_ = min(12, len(sl_g))
-        tgm = sl_g.rolling(gw_, min_periods=6).mean().iloc[-1]
-        tgs = max(sl_g.rolling(gw_, min_periods=6).std().iloc[-1], 0.01)
-        iw_ = min(12, len(sl_i))
-        tim = sl_i.rolling(iw_, min_periods=6).mean().iloc[-1]
-        tis = max(sl_i.rolling(iw_, min_periods=6).std().iloc[-1], 0.01)
-        tx = max(-2.0, min(2.0, (sl_g.iloc[-1] - tgm) / tgs))
-        ty = max(-2.0, min(2.0, (sl_i.iloc[-1] - tim) / tis))
-        dl = common_dates[off] if off < len(common_dates) else str(off)
-        trajectory.append({"date": dl, "x": round(tx, 4), "y": round(ty, 4)})
+    for off in range(24, len(months)):
+        m_slice = months[:off + 1]
+        tg = {}
+        for gid in G_IDS:
+            if gid in g_lookups and gid in THRESH:
+                lu = g_lookups[gid]
+                avail = {m: lu[m] for m in m_slice if m in lu}
+                if avail:
+                    latest_m = max(avail.keys())
+                    n, w = THRESH[gid]
+                    tg[gid] = _score(avail[latest_m], n, w)
+        ti = {}
+        for iid in I_IDS:
+            if iid in i_lookups and iid in THRESH:
+                lu = i_lookups[iid]
+                avail = {m: lu[m] for m in m_slice if m in lu}
+                if avail:
+                    latest_m = max(avail.keys())
+                    n, w = THRESH[iid]
+                    ti[iid] = _score(avail[latest_m], n, w)
+
+        tx = sum(G_WEIGHTS[k] * v for k, v in tg.items()) if tg else 0.0
+        ty = sum(I_WEIGHTS[k] * v for k, v in ti.items()) if ti else 0.0
+        trajectory.append({"date": months[off],
+                           "x": round(max(-2.0, min(2.0, tx)), 4),
+                           "y": round(max(-2.0, min(2.0, ty)), 4)})
 
     return {"x": round(x, 4), "y": round(y, 4), "quadrant": quad,
             "asset_allocation": alloc, "advice": adv, "trajectory": trajectory}

@@ -8,6 +8,10 @@ data/*.csv
 data/*.json
 data/*.js
 data/*.yaml
+data/*.txt
+
+# Claude local settings
+.claude/
 
 # IDE
 .idea/

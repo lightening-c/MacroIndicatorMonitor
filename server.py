@@ -32,7 +32,6 @@ def run_update():
         steps = [
             ("采集数据", "fetch_data.py"),
             ("分析引擎", "analyze.py"),
-            ("生成页面", "build_dashboard.py"),
         ]
         results = []
         for name, script in steps:

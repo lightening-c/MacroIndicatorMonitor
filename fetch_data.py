@@ -31,23 +31,23 @@ FUNC_COLUMN_SPEC = {
     "macro_china_new_financial_credit": {
         # 返回多列，保留全部
     },
-    "macro_china_money_supply": {
+    "macro_china_money_supply_em": {
         # 返回多列（M0/M1/M2），保留全部
     },
-    "macro_china_xfzxx": {
+    "macro_china_consumer_confidence": {
         # 返回多列，保留全部
     },
     "macro_china_enterprise_boom_index": {
         "date_col": "季度",
         "val_col": "企业景气指数-指数",
     },
-    "macro_china_gdzctz": {
+    "macro_china_fixed_asset_investment": {
         "date_col": "月份",
         "val_col": "同比增长",
     },
-    "macro_china_exports_yoy": {
-        "date_col": "日期",
-        "val_col": "今值",
+    "macro_china_industrial_value_added": {
+        "date_col": "月份",
+        "val_col": "同比增长",
     },
     "macro_china_imports_yoy": {
         "date_col": "日期",
@@ -65,11 +65,11 @@ FUNC_COLUMN_SPEC = {
         "date_col": "月份",
         "val_col": "当月值",
     },
-    "macro_china_fx_reserves_yearly": {
-        "date_col": "日期",
-        "val_col": "今值",
+    "macro_china_fx_gold_em": {
+        "date_col": "月份",
+        "val_col": "国家外汇储备-数值",
     },
-    "macro_china_czsr": {
+    "macro_china_fiscal_revenue": {
         "date_col": "月份",
         "val_col": "当月-同比增长",
     },
@@ -78,11 +78,10 @@ FUNC_COLUMN_SPEC = {
         "val_col": "最新值",
     },
     # 以下函数无特殊列映射，直接保留原始返回的全部列：
-    #   macro_china_pmi, macro_china_industrial_production_yoy,
+    #   macro_china_pmi, macro_china_gdp,
     #   macro_china_consumer_goods_retail, macro_china_society_electricity,
-    #   macro_china_gdp, macro_china_cpi, macro_china_ppi,
-    #   macro_china_urban_unemployment, macro_china_trade_balance,
-    #   macro_china_lpr, macro_china_commodity_price_index
+    #   macro_china_cpi, macro_china_ppi,
+    #   macro_china_urban_unemployment, macro_china_lpr
 }
 
 
@@ -209,16 +208,16 @@ def create_fetch_function(indicator):
         return _fetch
 
     # ── 模式 2：Shibor ────────────────────────────────────────
-    if func_name == "macro_china_shibor_all":
+    if func_name == "macro_china_shibor":
 
         def _fetch():
             try:
-                df = ak.macro_china_shibor_all()
+                df = ak.macro_china_shibor()
                 if df is None or df.empty:
                     print(f"  [WARN] Shibor 返回空数据")
                     return None
                 date_col_name = "日期"
-                val_col_name = "O/N-定盘利率"
+                val_col_name = "O/N-定价"
                 # 尝试精确匹配
                 if date_col_name in df.columns and val_col_name in df.columns:
                     result = df[[date_col_name, val_col_name]].copy()
@@ -229,7 +228,7 @@ def create_fetch_function(indicator):
                 on_col = None
                 for col in df.columns:
                     col_s = str(col)
-                    if "ON" in col_s.upper() or "O/N" in col_s or "隔夜" in col_s:
+                    if "ON" in col_s.upper() or "O/N" in col_s or "隔夜" in col_s or "定价" in col_s:
                         on_col = col
                         break
                 if on_col:
@@ -376,6 +375,40 @@ def create_fetch_function(indicator):
                 return result
             except Exception as e:
                 print(f"  [ERR] 中证商品期货指数获取失败: {e}")
+                traceback.print_exc()
+            return None
+        return _fetch
+
+    # ── 模式 6.5：海关进出口（出口增速/贸易差额共用）──────────
+    if func_name == "macro_china_customs_trade":
+
+        def _fetch():
+            try:
+                df = ak.macro_china_customs_trade()
+                if df is None or df.empty:
+                    print(f"  [WARN] {ind_name} 返回空数据")
+                    return None
+                if ind_id == "exports_yoy":
+                    # 出口增速：当月出口额-同比增长
+                    result = _extract_date_val(df, "月份", "当月出口额-同比增长")
+                    if result[1] is not None:
+                        out = result[0].copy()
+                        out.columns = ["日期", "出口增速"]
+                        print(f"  [INFO] 获取出口增速共 {len(out)} 条数据")
+                        return out
+                elif ind_id == "trade_balance":
+                    # 贸易差额 = 当月出口额 - 当月进口额（千美元→亿美元）
+                    if "当月出口额-金额" in df.columns and "当月进口额-金额" in df.columns:
+                        out = df[["月份", "当月出口额-金额", "当月进口额-金额"]].copy()
+                        out["贸易差额"] = ((out["当月出口额-金额"] - out["当月进口额-金额"]) / 100000).round(2)
+                        out = out[["月份", "贸易差额"]].copy()
+                        out.columns = ["日期", "贸易差额"]
+                        print(f"  [INFO] 获取贸易差额共 {len(out)} 条数据")
+                        return out
+                print(f"  [WARN] {ind_name} 未匹配处理逻辑，返回全部列: {list(df.columns)}")
+                return df
+            except Exception as e:
+                print(f"  [ERR] {ind_name} 获取失败: {e}")
                 traceback.print_exc()
             return None
         return _fetch
