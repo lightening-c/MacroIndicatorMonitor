@@ -17,8 +17,8 @@ CONFIG_FILE = os.path.join(BASE_DIR, "config.yaml")
 ANALYSIS_OUTPUT = os.path.join(DATA_DIR, "analysis_result.json")
 
 # Indicators where rising is "bad" (signal flipped)
-NEGATIVE_INDICATORS = {"cpi", "ppi", "unemployment", "lpr", "reserve_ratio",
-                       "rmb_rate", "shibor_overnight", "bond_yield_10y"}
+NEGATIVE_INDICATORS = {"cpi", "ppi", "unemployment", "lpr",
+                       "reserve_ratio", "rmb_rate", "shibor_overnight", "bond_yield_10y"}
 
 # ---------------------------------------------------------------------------
 # Legacy column hints: used as fallback / override for auto-detection
@@ -27,9 +27,11 @@ NEGATIVE_INDICATORS = {"cpi", "ppi", "unemployment", "lpr", "reserve_ratio",
 # ---------------------------------------------------------------------------
 COLUMN_HINTS = {
     "pmi_manufacturing":     {"date_col": "日期",     "val_col": "制造业-指数"},
-    "pmi_non_manufacturing": {"date_col": "日期",     "val_col": "非制造业PMI"},
     "social_financing":      {"date_col": "月份",     "val_col": "当月-同比增长"},
     "m2_growth":             {"date_col": "月份",     "val_col": "货币和准货币(M2)-同比增长"},
+    "m1_growth":             {"date_col": "日期",     "val_col": "M1货币供应增速"},
+    "m1_m2_gap":             {"date_col": "日期",     "val_col": "M1-M2剪刀差"},
+    "pmi_non_manufacturing": {"date_col": "日期",     "val_col": "非制造业PMI"},
     "consumer_confidence":   {"date_col": "月份",     "val_col": "消费者信心指数-指数值"},
     "enterprise_boom":       {"date_col": "日期",     "val_col": "企业景气指数"},
     "shibor_overnight":      {"date_col": "日期",     "val_col": "隔夜Shibor"},
@@ -56,6 +58,7 @@ COLUMN_HINTS = {
     "imports_yoy":           {"date_col": "日期",     "val_col": "进口增速"},
     "freight_index":         {"date_col": "日期",     "val_col": "货运指数"},
     "fiscal_revenue":        {"date_col": "日期",     "val_col": "财政收入增速"},
+    "fiscal_expenditure":    {"date_col": "日期",     "val_col": "财政支出增速"},
     "gdp_growth":            {"date_col": "季度",     "val_col": "国内生产总值-同比增长"},
     "cpi":                   {"date_col": "月份",     "val_col": "全国-同比增长"},
     "ppi":                   {"date_col": "月份",     "val_col": "当月同比增长"},

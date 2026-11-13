@@ -628,6 +628,46 @@ def create_fetch_function(indicator):
             return None
         return _fetch
 
+    # ── 模式 16：货币供应分项（M1 / M1-M2 剪刀差）────────────
+    if func_name == "macro_china_money_supply_em":
+
+        def _fetch():
+            try:
+                df = ak.macro_china_money_supply_em()
+                m1 = pd.to_numeric(df["货币(M1)-同比增长"], errors="coerce")
+                m2 = pd.to_numeric(df["货币和准货币(M2)-同比增长"], errors="coerce")
+                if ind_id == "m1_growth":
+                    vals = m1
+                else:
+                    vals = (m1 - m2).round(2)
+                out = pd.DataFrame({"日期": df["月份"].values, ind_name: vals.values})
+                out = out.dropna(subset=[ind_name])
+                print(f"  [INFO] 获取 {ind_name} 共 {len(out)} 条数据")
+                return out
+            except Exception as e:
+                print(f"  [ERR] {ind_name} 获取失败: {e}")
+                traceback.print_exc()
+            return None
+        return _fetch
+
+    # ── 模式 17：官方非制造业 PMI ────────────────────────────
+    if func_name == "macro_china_pmi" and ind_id == "pmi_non_manufacturing":
+
+        def _fetch():
+            try:
+                df = ak.macro_china_pmi()
+                out = df[["月份", "非制造业-指数"]].copy()
+                out.columns = ["日期", ind_name]
+                out[ind_name] = pd.to_numeric(out[ind_name], errors="coerce")
+                out = out.dropna(subset=[ind_name])
+                print(f"  [INFO] 获取 {ind_name} 共 {len(out)} 条数据")
+                return out
+            except Exception as e:
+                print(f"  [ERR] {ind_name} 获取失败: {e}")
+                traceback.print_exc()
+            return None
+        return _fetch
+
     # ── 模式 7：有列名映射的通用函数 ──────────────────────────
     if date_col_spec and val_col_spec:
 

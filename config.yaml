@@ -15,6 +15,22 @@ indicators:
       description: 广义货币供应量同比, 流动性先于实体3-6个月
       akshare_func: macro_china_money_supply_em
 
+    - id: m1_growth
+      name: M1货币供应增速
+      unit: "%"
+      source: 中国人民银行
+      frequency: 月度
+      description: 狭义货币同比, 企业活期资金, 领先实体与权益市场
+      akshare_func: macro_china_money_supply_em
+
+    - id: m1_m2_gap
+      name: M1-M2剪刀差
+      unit: pp
+      source: 中国人民银行
+      frequency: 月度
+      description: M1增速减M2增速, 衡量资金活化程度, 上行对应企业投资意愿改善
+      akshare_func: macro_china_money_supply_em
+
     - id: social_financing
       name: 新增人民币信贷
       unit: 亿元
@@ -46,6 +62,14 @@ indicators:
       source: 国家统计局
       frequency: 月度
       description: 50荣枯线, 采购经理对未来的预期
+      akshare_func: macro_china_pmi
+
+    - id: pmi_non_manufacturing
+      name: 非制造业PMI
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 官方非制造业商务活动指数, 覆盖建筑业与服务业
       akshare_func: macro_china_pmi
 
     - id: consumer_confidence
@@ -157,6 +181,15 @@ indicators:
       frequency: 月度
       description: 税收与经济周期同步
       akshare_func: macro_china_fiscal_revenue
+
+    - id: fiscal_expenditure
+      name: 财政支出增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 一般公共预算支出累计同比, 支出法政府购买(G)的代理
+      akshare_func: macro_china_nbs_nation
+      akshare_params: {kind: 月度数据, path: "财政>国家财政预算支出", row: "国家财政支出(不含债务还本)累计增长(%)"}
 
     - id: services_pmi
       name: 财新服务业PMI
@@ -331,13 +364,17 @@ calibers:
   realestate_investment: 支出法
   house_sales_area: 支出法
   fiscal_revenue: 收入法
+  fiscal_expenditure: 支出法
   industrial_profit: 收入法
   residential_income: 收入法
   unemployment: 收入法
   pmi_manufacturing: 景气预期
+  pmi_non_manufacturing: 景气预期
   consumer_confidence: 景气预期
   services_pmi: 景气预期
   m2_growth: 价格金融
+  m1_growth: 价格金融
+  m1_m2_gap: 价格金融
   social_financing: 价格金融
   tsf_rolling_yoy: 价格金融
   shibor_overnight: 价格金融
@@ -353,7 +390,7 @@ calibers:
 # 核算视角勾稽分组（生产法与支出法对照）
 accounting:
   production: [industrial_production, services_production_index, electricity]
-  demand: [retail_sales, consumption_expenditure, fixed_asset_investment, realestate_investment, exports_yoy]
+  demand: [retail_sales, consumption_expenditure, fixed_asset_investment, realestate_investment, fiscal_expenditure, exports_yoy]
   income: [industrial_profit, residential_income, fiscal_revenue]
   inventory: inventory_growth
   gap_window_months: 60
@@ -372,6 +409,8 @@ accounting:
           indicators: [retail_sales, consumption_expenditure]
         - label: 投资
           indicators: [fixed_asset_investment, realestate_investment]
+        - label: 政府支出
+          indicators: [fiscal_expenditure]
         - label: 净出口
           indicators: [exports_yoy, trade_balance]
     - id: income
