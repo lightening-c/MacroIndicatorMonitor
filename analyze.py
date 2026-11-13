@@ -992,8 +992,10 @@ def run_analysis():
     for cat in ["leading", "coincident", "lagging"]:
         for ind in trimmed["indicators"][cat]:
             ts = ind.get("ts_data", [])
-            if len(ts) > 60:
-                ind["ts_data"] = ts[-60:]
+            freq = ind.get("frequency", "")
+            limit = 240 if "每日" in freq else (48 if "季度" in freq else 120)
+            if len(ts) > limit:
+                ind["ts_data"] = ts[-limit:]
     for k in trimmed.get("composite_indices", {}):
         pts = trimmed["composite_indices"][k]
         if isinstance(pts, list) and len(pts) > 120:

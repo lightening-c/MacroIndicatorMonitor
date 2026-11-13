@@ -15,7 +15,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PYTHON = sys.executable
 UPDATE_LOG = os.path.join(BASE_DIR, "data", "update_log.json")
 
-STATUS = {"running": False, "last_update": None, "last_result": None}
+STATUS = {"running": False, "last_update": None, "last_result": None, "current_step": None}
 
 if os.path.exists(UPDATE_LOG):
     try:
@@ -36,7 +36,8 @@ def run_update():
             ("数据自检", "smoke_test.py"),
         ]
         results = []
-        for name, script in steps:
+        for i, (name, script) in enumerate(steps):
+            STATUS["current_step"] = f"{i+1}/{len(steps)} {name}"
             result = subprocess.run(
                 [PYTHON, os.path.join(BASE_DIR, script)],
                 capture_output=True, text=True, cwd=BASE_DIR, timeout=300
@@ -62,6 +63,7 @@ def run_update():
         return False, [{"step": "异常", "ok": False, "output": str(e)}]
     finally:
         STATUS["running"] = False
+        STATUS["current_step"] = None
 
 
 class APIHandler(http.server.SimpleHTTPRequestHandler):
@@ -81,7 +83,7 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/api/status":
-            self.send_json(200, {"ok": True, "running": STATUS["running"], "last_update": STATUS["last_update"], "last_result": STATUS["last_result"]})
+            self.send_json(200, {"ok": True, "running": STATUS["running"], "current_step": STATUS["current_step"], "last_update": STATUS["last_update"], "last_result": STATUS["last_result"]})
         elif self.path == "/":
             self.path = "/dashboard.html"
             super().do_GET()

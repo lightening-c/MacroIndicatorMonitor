@@ -224,8 +224,8 @@ indicators:
 
 # 图表配置
 chart:
-  daily_display_points: 120
-  monthly_display_points: 60
+  daily_display_points: 750
+  monthly_display_points: 120
   quarterly_display_points: 40
   ma_short: 3
   ma_long: 6
