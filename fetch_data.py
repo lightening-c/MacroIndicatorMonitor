@@ -4,6 +4,7 @@
 动态读取 config.yaml 构建指标体系，不硬编码指标列表
 """
 import os
+import re
 import sys
 import traceback
 import yaml
@@ -94,6 +95,34 @@ def ensure_data_dir():
     """确保 data 目录存在"""
     if not os.path.exists(DATA_DIR):
         os.makedirs(DATA_DIR)
+
+
+# ──────────────────────────────────────────────────────────────────
+#  国家统计局通用接口辅助：同一 kind/path 只请求一次
+# ──────────────────────────────────────────────────────────────────
+_NBS_CACHE = {}
+
+
+def _nbs_frame(kind, path):
+    key = (kind, path)
+    if key not in _NBS_CACHE:
+        _NBS_CACHE[key] = ak.macro_china_nbs_nation(kind=kind, path=path, period="2015-")
+    return _NBS_CACHE[key]
+
+
+def _nbs_col_to_date(col):
+    """NBS 列名 -> 日期字符串: '2026年9月' / '2026年第三季度'"""
+    s = str(col).strip()
+    m = re.match(r"(\d{4})年(\d{1,2})月", s)
+    if m:
+        return f"{m.group(1)}-{int(m.group(2)):02d}-01"
+    m = re.match(r"(\d{4})年第([一二三四1-4])季度", s)
+    if m:
+        q = {"一": 3, "二": 6, "三": 9, "四": 12,
+             "1": 3, "2": 6, "3": 9, "4": 12}[m.group(2)]
+        day = {3: 31, 6: 30, 9: 30, 12: 31}[q]
+        return f"{m.group(1)}-{q:02d}-{day}"
+    return None
 
 
 def load_config():
@@ -561,6 +590,40 @@ def create_fetch_function(indicator):
                 return g
             except Exception as e:
                 print(f"  [ERR] 房价数据获取失败: {e}")
+                traceback.print_exc()
+            return None
+        return _fetch
+
+    # ── 模式 14：国家统计局通用接口（按行名取指标）───────────
+    if func_name == "macro_china_nbs_nation":
+        kind = params.get("kind", "月度数据")
+        path = params.get("path", "")
+        row = params.get("row", "")
+
+        def _fetch():
+            try:
+                df = _nbs_frame(kind, path)
+                if df is None or df.empty:
+                    print(f"  [WARN] {ind_name} NBS 返回空数据")
+                    return None
+                if row not in df.index:
+                    print(f"  [WARN] {ind_name} 未找到行 '{row}'，可用行示例: {list(df.index)[:10]}")
+                    return None
+                pts = []
+                for col, val in df.loc[row].items():
+                    d = _nbs_col_to_date(col)
+                    v = pd.to_numeric(val, errors="coerce")
+                    if d and pd.notna(v):
+                        pts.append((d, float(v)))
+                if not pts:
+                    print(f"  [WARN] {ind_name} 无可解析数据")
+                    return None
+                out = pd.DataFrame(pts, columns=["日期", ind_name])
+                out = out.sort_values("日期").drop_duplicates("日期", keep="last")
+                print(f"  [INFO] 获取 {ind_name} 共 {len(out)} 条（{out.iloc[0,0]} ~ {out.iloc[-1,0]}）")
+                return out
+            except Exception as e:
+                print(f"  [ERR] {ind_name} NBS 获取失败: {e}")
                 traceback.print_exc()
             return None
         return _fetch

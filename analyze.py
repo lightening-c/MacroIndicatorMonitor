@@ -43,6 +43,10 @@ COLUMN_HINTS = {
     "retail_sales":          {"date_col": "月份",     "val_col": "同比增长"},
     "electricity":           {"date_col": "日期",     "val_col": "用电量当月同比"},
     "services_pmi":          {"date_col": "日期",     "val_col": "财新服务业PMI"},
+    "services_production_index": {"date_col": "日期", "val_col": "服务业生产指数"},
+    "residential_income":    {"date_col": "日期",     "val_col": "居民人均可支配收入增速"},
+    "industrial_profit":     {"date_col": "日期",     "val_col": "工业企业利润增速"},
+    "inventory_growth":      {"date_col": "日期",     "val_col": "产成品存货增速"},
     "bond_yield_10y":        {"date_col": "日期",     "val_col": "10年国债收益率"},
     "tsf_rolling_yoy":       {"date_col": "日期",     "val_col": "社融滚动增量同比"},
     "exports_yoy":           {"date_col": "日期",     "val_col": "出口增速"},
@@ -468,6 +472,122 @@ def compute_correlation_matrix(ind_values, ind_dates, window_months=120):
 
 
 # ---------------------------------------------------------------------------
+# Accounting view (生产法 / 支出法 / 收入法 勾稽)
+# ---------------------------------------------------------------------------
+def compute_accounting(entries_by_id, ind_values, ind_dates, acc_cfg, window_months=60):
+    """把同口径指标合成为 z 分数，计算生产端-需求端缺口，并结合存货增速判断库存方向。"""
+
+    def monthly(ind_id):
+        vals = ind_values.get(ind_id)
+        dates = ind_dates.get(ind_id)
+        if vals is None or dates is None or len(vals) == 0:
+            return None
+        s = pd.Series(pd.to_numeric(vals, errors="coerce").values,
+                      index=pd.to_datetime(pd.Series(dates).values)).dropna()
+        if s.empty:
+            return None
+        m = s.resample("ME").last().dropna()
+        return m if len(m) >= 6 else None
+
+    def composite(ids):
+        frames = {}
+        for i in ids:
+            m = monthly(i)
+            if m is not None:
+                frames[i] = m
+        if not frames:
+            return None
+        df = pd.DataFrame(frames).sort_index()
+        if len(df) < 6:
+            return None
+        z = (df - df.mean()) / df.std(ddof=0)
+        return z.mean(axis=1, skipna=True).dropna()
+
+    prod = composite(acc_cfg.get("production", []))
+    dem = composite(acc_cfg.get("demand", []))
+    inc = composite(acc_cfg.get("income", []))
+
+    if prod is None or dem is None:
+        return {"available": False}
+
+    df = pd.DataFrame({"production": prod, "demand": dem})
+    if inc is not None:
+        df["income"] = inc
+    df = df.dropna(subset=["production", "demand"]).tail(window_months)
+    df["gap"] = df["production"] - df["demand"]
+
+    def points(series):
+        return [{"date": d.strftime("%Y-%m-%d"), "value": round(float(v), 4)}
+                for d, v in series.dropna().items()]
+
+    def group_dirs(ids):
+        up = down = flat = 0
+        for i in ids:
+            e = entries_by_id.get(i)
+            if not e or e.get("stale"):
+                continue
+            d = e.get("raw_direction", "stable")
+            if d == "up":
+                up += 1
+            elif d == "down":
+                down += 1
+            else:
+                flat += 1
+        return {"up": up, "down": down, "flat": flat}
+
+    gap_last = float(df["gap"].iloc[-1])
+
+    inv = monthly(acc_cfg.get("inventory"))
+    inv_last = inv_chg = None
+    if inv is not None and len(inv) >= 4:
+        inv_last = float(inv.iloc[-1])
+        inv_chg = float(inv.iloc[-1] - inv.iloc[-4])
+
+    if gap_last > 0.3:
+        if inv_chg is not None and inv_chg > 0:
+            text = ("生产端明显强于需求端，且产成品存货同比在上升——产出没有被消费、投资和出口吸收的部分"
+                    "正在进库存，属于被动累库特征，通常对应 PPI 走弱和后续生产回落。")
+        else:
+            text = ("生产端强于需求端，但存货增速没有同步上升，缺口可能来自口径差异或进出口再分配，"
+                    "需要下一期数据确认。")
+    elif gap_last < -0.3:
+        if inv_chg is not None and inv_chg < 0:
+            text = ("需求端强于生产端，同时存货同比在下降——库存去化，若持续则企业补库意愿可能随后回升。")
+        else:
+            text = ("需求端强于生产端，但存货未见明显去化，需警惕数据口径或单月扰动。")
+    else:
+        text = "生产与需求大致平衡，未见明显的库存压力积累。"
+
+    def last(series):
+        return round(float(series.iloc[-1]), 4) if series is not None and len(series) else None
+
+    return {
+        "available": True,
+        "production": points(df["production"]),
+        "demand": points(df["demand"]),
+        "income": points(df["income"]) if "income" in df.columns else [],
+        "gap": points(df["gap"]),
+        "latest": {
+            "production": last(df["production"]),
+            "demand": last(df["demand"]),
+            "income": last(df["income"]) if "income" in df.columns else None,
+            "gap": round(gap_last, 4),
+            "inventory": round(inv_last, 4) if inv_last is not None else None,
+            "inventory_change": round(inv_chg, 4) if inv_chg is not None else None,
+        },
+        "directions": {
+            "production": group_dirs(acc_cfg.get("production", [])),
+            "demand": group_dirs(acc_cfg.get("demand", [])),
+            "income": group_dirs(acc_cfg.get("income", [])),
+        },
+        "interpretation": text,
+        "note": "生产端为实际增速（工业增加值、服务业生产指数、用电量），需求端社零与固投为名义增速，"
+                "缺口方向可参考，幅度不宜直接比较。",
+        "window_months": int(len(df)),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Composite indices (z-score weighted average)
 # ---------------------------------------------------------------------------
 def compute_composite_index(ind_entries):
@@ -833,6 +953,7 @@ def run_analysis():
                 "frequency": freq,
                 "description": ind_cfg.get("description", ""),
                 "category": category,
+                "caliber": (config.get("calibers") or {}).get(ind_id, ""),
                 "latest_value": trend["latest"],
                 "latest_date": ts_data[-1]["date"] if ts_data else None,
                 "data_age_days": data_age_days,
@@ -956,6 +1077,16 @@ def run_analysis():
     results["summary"]["cycle_phase"] = cycle
     results["summary"]["outlook"] = outlook
     results["summary"]["cycle_phase_detail"] = results["cycle_phase"]
+
+    # === Accounting View（生产法 / 支出法 / 收入法 勾稽）===
+    acc_cfg = config.get("accounting", {}) or {}
+    try:
+        results["accounting"] = compute_accounting(
+            ind_data, ind_values, ind_dates, acc_cfg,
+            int(acc_cfg.get("gap_window_months", 60)))
+    except Exception as e:
+        print(f"  [WARN] 核算视角计算失败: {e}")
+        results["accounting"] = {"available": False}
 
     # === Data Health（陈旧与采集失败）===
     stale_items = []

@@ -157,6 +157,24 @@ indicators:
       description: 服务业景气度, 三产占GDP过半的同步代理
       akshare_func: index_pmi_ser_cx
 
+    - id: services_production_index
+      name: 服务业生产指数
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 第三产业增加值当月同比, 生产法口径的三产产出
+      akshare_func: macro_china_nbs_nation
+      akshare_params: {kind: 月度数据, path: "服务业生产指数>服务业生产指数", row: "服务业生产指数当月同比_增速(%)"}
+
+    - id: residential_income
+      name: 居民人均可支配收入增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 季度
+      description: 全国居民人均可支配收入累计同比, 收入端到消费的传导起点
+      akshare_func: macro_china_nbs_nation
+      akshare_params: {kind: 季度数据, path: "人民生活>全国居民人均收入情况", row: "居民人均可支配收入累计增长(%)"}
+
   lagging:
     - id: cpi
       name: CPI
@@ -214,6 +232,24 @@ indicators:
       description: 70城房价同比, 价格调整滞后于销售与投资
       akshare_func: macro_china_new_house_price
 
+    - id: industrial_profit
+      name: 工业企业利润增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 规上工业企业利润总额累计同比, 收入与盈利端
+      akshare_func: macro_china_nbs_nation
+      akshare_params: {kind: 月度数据, path: "工业>工业企业主要经济指标", row: "利润总额累计增长(%)"}
+
+    - id: inventory_growth
+      name: 产成品存货增速
+      unit: "%"
+      source: 国家统计局
+      frequency: 月度
+      description: 规上工业产成品存货同比, 生产与需求缺口在库存上的体现
+      akshare_func: macro_china_nbs_nation
+      akshare_params: {kind: 月度数据, path: "工业>工业企业主要经济指标", row: "产成品存货增减(%)"}
+
     - id: fx_reserves
       name: 外汇储备
       unit: 亿美元
@@ -250,3 +286,44 @@ pring:
   bond_proxy: bond_yield_10y
   stock_proxy: sh_index
   commodity_proxy: ppi
+
+# 核算口径标签: 生产 / 需求 / 收入 / 价格金融 / 景气预期
+calibers:
+  industrial_production: 生产
+  gdp_growth: 生产
+  electricity: 生产
+  services_production_index: 生产
+  inventory_growth: 生产
+  retail_sales: 需求
+  fixed_asset_investment: 需求
+  exports_yoy: 需求
+  trade_balance: 需求
+  real_estate_dev: 需求
+  new_house_price: 需求
+  fiscal_revenue: 收入
+  industrial_profit: 收入
+  residential_income: 收入
+  unemployment: 收入
+  pmi_manufacturing: 景气预期
+  consumer_confidence: 景气预期
+  services_pmi: 景气预期
+  m2_growth: 价格金融
+  social_financing: 价格金融
+  tsf_rolling_yoy: 价格金融
+  shibor_overnight: 价格金融
+  bond_yield_10y: 价格金融
+  commodity_price_index: 价格金融
+  lpr: 价格金融
+  fx_reserves: 价格金融
+  margin_sh: 价格金融
+  sh_index: 价格金融
+  cpi: 价格金融
+  ppi: 价格金融
+
+# 核算视角勾稽分组（生产法与支出法对照）
+accounting:
+  production: [industrial_production, services_production_index, electricity]
+  demand: [retail_sales, fixed_asset_investment, exports_yoy]
+  income: [industrial_profit, residential_income, fiscal_revenue]
+  inventory: inventory_growth
+  gap_window_months: 60
