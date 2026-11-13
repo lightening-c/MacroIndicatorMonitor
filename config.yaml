@@ -289,21 +289,21 @@ pring:
 
 # 核算口径标签: 生产 / 需求 / 收入 / 价格金融 / 景气预期
 calibers:
-  industrial_production: 生产
-  gdp_growth: 生产
-  electricity: 生产
-  services_production_index: 生产
-  inventory_growth: 生产
-  retail_sales: 需求
-  fixed_asset_investment: 需求
-  exports_yoy: 需求
-  trade_balance: 需求
-  real_estate_dev: 需求
-  new_house_price: 需求
-  fiscal_revenue: 收入
-  industrial_profit: 收入
-  residential_income: 收入
-  unemployment: 收入
+  industrial_production: 生产法
+  gdp_growth: 生产法
+  electricity: 生产法
+  services_production_index: 生产法
+  inventory_growth: 生产法
+  retail_sales: 支出法
+  fixed_asset_investment: 支出法
+  exports_yoy: 支出法
+  trade_balance: 支出法
+  real_estate_dev: 支出法
+  new_house_price: 支出法
+  fiscal_revenue: 收入法
+  industrial_profit: 收入法
+  residential_income: 收入法
+  unemployment: 收入法
   pmi_manufacturing: 景气预期
   consumer_confidence: 景气预期
   services_pmi: 景气预期

@@ -581,7 +581,7 @@ def compute_accounting(entries_by_id, ind_values, ind_dates, acc_cfg, window_mon
             "income": group_dirs(acc_cfg.get("income", [])),
         },
         "interpretation": text,
-        "note": "生产端为实际增速（工业增加值、服务业生产指数、用电量），需求端社零与固投为名义增速，"
+        "note": "生产法端为实际增速（工业增加值、服务业生产指数、用电量），支出法端社零与固投为名义增速，"
                 "缺口方向可参考，幅度不宜直接比较。",
         "window_months": int(len(df)),
     }
