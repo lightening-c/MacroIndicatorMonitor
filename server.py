@@ -111,7 +111,7 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self):
         # 静态资源短缓存、页面不缓存，避免浏览器拿旧 HTML/JS
-        if self.path.startswith("/assets/"):
+        if self.path.startswith("/assets/echarts"):
             self.send_header("Cache-Control", "public, max-age=604800")
         elif not self.path.startswith("/api/"):
             self.send_header("Cache-Control", "no-cache")
