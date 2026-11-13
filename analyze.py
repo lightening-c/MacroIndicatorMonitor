@@ -17,7 +17,8 @@ CONFIG_FILE = os.path.join(BASE_DIR, "config.yaml")
 ANALYSIS_OUTPUT = os.path.join(DATA_DIR, "analysis_result.json")
 
 # Indicators where rising is "bad" (signal flipped)
-NEGATIVE_INDICATORS = {"cpi", "ppi", "unemployment", "lpr", "reserve_ratio", "rmb_rate"}
+NEGATIVE_INDICATORS = {"cpi", "ppi", "unemployment", "lpr", "reserve_ratio",
+                       "rmb_rate", "shibor_overnight", "bond_yield_10y"}
 
 # ---------------------------------------------------------------------------
 # Legacy column hints: used as fallback / override for auto-detection
@@ -34,13 +35,16 @@ COLUMN_HINTS = {
     "shibor_overnight":      {"date_col": "日期",     "val_col": "隔夜Shibor"},
     "margin_sh":             {"date_col": "日期",     "val_col": "沪市融资余额"},
     "commodity_price_index": {"date_col": "日期", "val_col": "中证商品期货指数"},
-    "new_house_price":       {"date_col": "日期",     "val_col": "新建住宅价格指数"},
+    "new_house_price":       {"date_col": "日期",     "val_col": "新建住宅价格指数同比"},
     "sh_index":              {"date_col": "日期",     "val_col": "收盘价"},
     "sz_index":              {"date_col": "日期",     "val_col": "收盘价"},
     "industrial_production": {"date_col": "日期",     "val_col": "工业增加值增速"},
-    "fixed_asset_investment":{"date_col": "日期",     "val_col": "固定资产投资增速"},
+    "fixed_asset_investment":{"date_col": "日期",     "val_col": "固定资产投资当月同比"},
     "retail_sales":          {"date_col": "月份",     "val_col": "同比增长"},
-    "electricity":           {"date_col": "统计时间", "val_col": "全社会用电量同比"},
+    "electricity":           {"date_col": "日期",     "val_col": "用电量当月同比"},
+    "services_pmi":          {"date_col": "日期",     "val_col": "财新服务业PMI"},
+    "bond_yield_10y":        {"date_col": "日期",     "val_col": "10年国债收益率"},
+    "tsf_rolling_yoy":       {"date_col": "日期",     "val_col": "社融滚动增量同比"},
     "exports_yoy":           {"date_col": "日期",     "val_col": "出口增速"},
     "imports_yoy":           {"date_col": "日期",     "val_col": "进口增速"},
     "freight_index":         {"date_col": "日期",     "val_col": "货运指数"},
@@ -52,7 +56,7 @@ COLUMN_HINTS = {
     "trade_balance":         {"date_col": "日期",     "val_col": "贸易差额"},
     "lpr":                   {"date_col": "TRADE_DATE", "val_col": "RATE_1"},
     "reserve_ratio":         {"date_col": "日期",     "val_col": "存款准备金率"},
-    "real_estate_dev":       {"date_col": "日期",     "val_col": "房地产投资增速"},
+    "real_estate_dev":       {"date_col": "日期",     "val_col": "国房景气指数"},
     "fx_reserves":           {"date_col": "日期",     "val_col": "外汇储备"},
     "rmb_rate":              {"date_col": "月份",     "val_col": "国家外汇储备-同比"},
 }
@@ -423,39 +427,44 @@ def compute_decomposition(values, dates=None, freq="monthly"):
 # ---------------------------------------------------------------------------
 # Correlation matrix (pairwise Pearson)
 # ---------------------------------------------------------------------------
-def compute_correlation_matrix(ind_data_dict):
-    all_series = {}
-    for ind_id, entry in ind_data_dict.items():
-        ts = entry.get("ts_data", [])
-        if ts:
-            all_series[ind_id] = {pt["date"]: pt["value"]
-                                  for pt in ts if pt["value"] is not None}
+def compute_correlation_matrix(ind_values, ind_dates, window_months=120):
+    """先把每个序列重采样到月末，再两两求相关。
+    日频/月频/季频直接按日期取交集几乎取不上，会造成大量空单元。"""
+    series = {}
+    for ind_id, vals in ind_values.items():
+        dates = ind_dates.get(ind_id)
+        if dates is None or len(vals) == 0:
+            continue
+        s = pd.Series(pd.to_numeric(vals, errors="coerce").values,
+                      index=pd.to_datetime(pd.Series(dates).values))
+        s = s.dropna()
+        if s.empty:
+            continue
+        monthly = s.resample("ME").last().dropna()
+        if len(monthly) >= 12:
+            series[ind_id] = monthly
 
-    ids = list(all_series.keys())
-    n = len(ids)
-    if n < 2:
-        return {"indicators": ids, "matrix": []}
+    ids = list(series.keys())
+    if len(ids) < 2:
+        return {"indicators": ids, "matrix": [], "method": "month-end resample",
+                "window_months": window_months}
 
-    matrix = [[None] * n for _ in range(n)]
-    for i in range(n):
-        matrix[i][i] = 1.0
-        for j in range(i + 1, n):
-            si, sj = all_series[ids[i]], all_series[ids[j]]
-            common = sorted(set(si) & set(sj))
-            if len(common) < 5:
-                matrix[i][j] = matrix[j][i] = None
-                continue
-            vi = [si[d] for d in common]
-            vj = [sj[d] for d in common]
-            try:
-                corr = round(float(np.corrcoef(vi, vj)[0, 1]), 4)
-                if np.isnan(corr):
-                    corr = None
-            except Exception:
-                corr = None
-            matrix[i][j] = matrix[j][i] = corr
+    df = pd.DataFrame(series).sort_index()
+    if window_months and len(df) > window_months:
+        df = df.tail(window_months)
 
-    return {"indicators": ids, "matrix": matrix}
+    corr = df.corr(min_periods=12)
+    matrix = []
+    for i, row_id in enumerate(corr.index):
+        row = []
+        for j, col_id in enumerate(corr.columns):
+            v = corr.iloc[i, j]
+            row.append(None if pd.isna(v) else round(float(v), 4))
+        matrix.append(row)
+
+    return {"indicators": list(corr.index), "matrix": matrix,
+            "method": "month-end resample", "window_months": window_months,
+            "observations": int(df.shape[0])}
 
 
 # ---------------------------------------------------------------------------
@@ -759,9 +768,25 @@ def run_analysis():
             values = df["_val"]
             dates = df["_date"]
 
-            # --- Trend ---
-            trend = compute_trend(values, chart_cfg.get("ma_short", 3),
-                                  chart_cfg.get("ma_long", 6))
+            # --- Trend（均线窗口按频率适配：日频看 20/60 根，避免 3/6 天的噪声）---
+            ma_windows = chart_cfg.get("ma_windows", {})
+            if "每日" in freq:
+                ma_s, ma_l = ma_windows.get("daily", [20, 60])
+                stale_limit = 10
+            elif "季度" in freq:
+                ma_s, ma_l = ma_windows.get("quarterly", [2, 4])
+                stale_limit = 150
+            else:
+                ma_s, ma_l = ma_windows.get("monthly", [chart_cfg.get("ma_short", 3),
+                                                        chart_cfg.get("ma_long", 6)])
+                stale_limit = 75
+            trend = compute_trend(values, ma_s, ma_l)
+
+            # --- 数据时效 ---
+            last_date = dates.max()
+            data_age_days = int((datetime.now() - last_date.to_pydatetime()).days) \
+                if pd.notna(last_date) else None
+            is_stale = data_age_days is not None and data_age_days > stale_limit
 
             # --- Time series ---
             if "每日" in freq:
@@ -810,6 +835,8 @@ def run_analysis():
                 "category": category,
                 "latest_value": trend["latest"],
                 "latest_date": ts_data[-1]["date"] if ts_data else None,
+                "data_age_days": data_age_days,
+                "stale": is_stale,
                 "mom_change": trend["mom_change"],
                 "yoy_change": trend["yoy_change"],
                 "direction": trend["direction"],
@@ -833,13 +860,13 @@ def run_analysis():
 
     # === Correlation Matrix ===
     print("\n  计算相关系数矩阵...")
-    results["correlation_matrix"] = compute_correlation_matrix(ind_data)
+    results["correlation_matrix"] = compute_correlation_matrix(ind_values, ind_dates)
 
-    # === Composite Indices ===
+    # === Composite Indices（陈旧指标不参与，避免旧数据扭曲合成指数）===
     print("  计算合成指数...")
     for cat in ["leading", "coincident", "lagging"]:
-        results["composite_indices"][cat] = compute_composite_index(
-            results["indicators"].get(cat, []))
+        fresh = [e for e in results["indicators"].get(cat, []) if not e.get("stale")]
+        results["composite_indices"][cat] = compute_composite_index(fresh)
 
     # === Merrill Lynch Clock ===
     ml_cfg = config.get("merrill_lynch", {})
@@ -870,31 +897,35 @@ def run_analysis():
 
     if br and sr and cr:
         bond_raw = br.get("direction", "stable")
+        # 收益率上行 = 债券走弱，收益率类代理需要反向
         bond_sig = {"up": "down", "down": "up", "stable": "stable"}.get(bond_raw, "stable") \
-            if bond_id == "lpr" else bond_raw
+            if bond_id in NEGATIVE_INDICATORS else bond_raw
 
         pring = compute_pring_stage(bond_sig, sr.get("direction", "stable"),
                                     cr.get("direction", "stable"))
         results["pring"] = {
             **pring,
-            "bond_indicator": bond_id,
-            "stock_indicator": stock_id,
-            "commodity_indicator": com_id,
+            "bond_indicator": br.get("name", bond_id),
+            "stock_indicator": sr.get("name", stock_id),
+            "commodity_indicator": cr.get("name", com_id),
+            "bond_proxy_id": bond_id,
+            "stock_proxy_id": stock_id,
+            "commodity_proxy_id": com_id,
             "bond_proxy_value": br.get("latest_value"),
             "stock_proxy_value": sr.get("latest_value"),
             "commodity_proxy_value": cr.get("latest_value"),
         }
 
-    # === Cycle Phase Detection ===
+    # === Cycle Phase Detection（仅用新鲜数据）===
     results["cycle_phase"] = detect_cycle_phase(
-        [r["raw_direction"] for r in results["indicators"].get("leading", [])],
-        [r["raw_direction"] for r in results["indicators"].get("coincident", [])],
-        [r["raw_direction"] for r in results["indicators"].get("lagging", [])],
+        [r["raw_direction"] for r in results["indicators"].get("leading", []) if not r.get("stale")],
+        [r["raw_direction"] for r in results["indicators"].get("coincident", []) if not r.get("stale")],
+        [r["raw_direction"] for r in results["indicators"].get("lagging", []) if not r.get("stale")],
     )
 
-    # === Summary ===
+    # === Summary（陈旧指标不计数）===
     for cat in ["leading", "coincident", "lagging"]:
-        sigs = [r["signal"] for r in results["indicators"].get(cat, [])]
+        sigs = [r["signal"] for r in results["indicators"].get(cat, []) if not r.get("stale")]
         imp = sum(1 for s in sigs if s == "improving")
         det = sum(1 for s in sigs if s == "deteriorating")
         results["summary"][f"{cat}_score"] = imp - det
@@ -925,6 +956,31 @@ def run_analysis():
     results["summary"]["cycle_phase"] = cycle
     results["summary"]["outlook"] = outlook
     results["summary"]["cycle_phase_detail"] = results["cycle_phase"]
+
+    # === Data Health（陈旧与采集失败）===
+    stale_items = []
+    for cat in ["leading", "coincident", "lagging"]:
+        for e in results["indicators"].get(cat, []):
+            if e.get("stale"):
+                stale_items.append({"id": e["id"], "name": e["name"], "category": cat,
+                                    "latest_date": e["latest_date"],
+                                    "age_days": e["data_age_days"]})
+    failed_items = []
+    meta_path = os.path.join(DATA_DIR, "meta.yaml")
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                failed_items = (yaml.safe_load(f) or {}).get("failed_items", []) or []
+        except Exception:
+            pass
+    total_ind = sum(len(results["indicators"].get(c, []))
+                    for c in ["leading", "coincident", "lagging"])
+    results["data_health"] = {
+        "total": total_ind,
+        "stale_count": len(stale_items),
+        "stale": stale_items,
+        "failed_items": failed_items,
+    }
 
     # === Save ===
     os.makedirs(DATA_DIR, exist_ok=True)

@@ -33,6 +33,7 @@ def run_update():
         steps = [
             ("采集数据", "fetch_data.py"),
             ("分析引擎", "analyze.py"),
+            ("数据自检", "smoke_test.py"),
         ]
         results = []
         for name, script in steps:
@@ -105,6 +106,14 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         print(f"[{datetime.now().strftime('%H:%M:%S')}] {args[0]}")
+
+    def end_headers(self):
+        # 静态资源短缓存、页面不缓存，避免浏览器拿旧 HTML/JS
+        if self.path.startswith("/assets/"):
+            self.send_header("Cache-Control", "public, max-age=604800")
+        elif not self.path.startswith("/api/"):
+            self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
 
 
 class SingleInstanceHTTPServer(http.server.ThreadingHTTPServer):

@@ -23,6 +23,14 @@ indicators:
       description: 信用扩张领先经济活动
       akshare_func: macro_china_new_financial_credit
 
+    - id: tsf_rolling_yoy
+      name: 社融滚动12月增量同比
+      unit: "%"
+      source: 中国人民银行
+      frequency: 月度
+      description: 滚动12个月社融增量同比, 信用脉冲代理, 领先实体3-6个月
+      akshare_func: macro_china_social_financing
+
     - id: shibor_overnight
       name: 隔夜Shibor
       unit: "%"
@@ -66,6 +74,15 @@ indicators:
       description: 杠杆资金反映市场风险偏好, 领先市场
       akshare_func: macro_china_market_margin_sh
 
+    # ── 利率/金融条件 ──
+    - id: bond_yield_10y
+      name: 10年期国债收益率
+      unit: "%"
+      source: 中国债券信息网
+      frequency: 每日
+      description: 长端利率反映增长预期与货币条件, 下行利好债券
+      akshare_func: bond_zh_us_yield_em
+
     # ── 上游价格先行 ──
     - id: commodity_price_index
       name: 中证商品期货指数
@@ -74,14 +91,6 @@ indicators:
       frequency: 每日
       description: 大宗商品期货综合指数, 领先PPI 1-3个月
       akshare_func: futures_index_ccidx
-
-    - id: new_house_price
-      name: 新建住宅价格指数
-      unit: "%"
-      source: 国家统计局
-      frequency: 月度
-      description: 70城房价同比, 房地产周期领先信号
-      akshare_func: macro_china_new_house_price
 
   coincident:
     - id: industrial_production
@@ -140,6 +149,14 @@ indicators:
       description: 税收与经济周期同步
       akshare_func: macro_china_fiscal_revenue
 
+    - id: services_pmi
+      name: 财新服务业PMI
+      unit: 指数
+      source: 财新 / S&P Global
+      frequency: 月度
+      description: 服务业景气度, 三产占GDP过半的同步代理
+      akshare_func: index_pmi_ser_cx
+
   lagging:
     - id: cpi
       name: CPI
@@ -182,12 +199,20 @@ indicators:
       akshare_func: macro_china_lpr
 
     - id: real_estate_dev
-      name: 房地产投资增速
+      name: 国房景气指数
+      unit: 指数
+      source: 国家统计局
+      frequency: 月度
+      description: 房地产开发综合景气指数, 地产周期滞后确认
+      akshare_func: macro_china_real_estate
+
+    - id: new_house_price
+      name: 新建住宅价格指数
       unit: "%"
       source: 国家统计局
       frequency: 月度
-      description: 地产投资对政策响应有较长滞后
-      akshare_func: macro_china_real_estate
+      description: 70城房价同比, 价格调整滞后于销售与投资
+      akshare_func: macro_china_new_house_price
 
     - id: fx_reserves
       name: 外汇储备
@@ -204,6 +229,11 @@ chart:
   quarterly_display_points: 40
   ma_short: 3
   ma_long: 6
+  # 均线窗口按数据频率设置, 避免日频指标用 3/6 天这种噪声窗口
+  ma_windows:
+    daily: [20, 60]
+    monthly: [3, 6]
+    quarterly: [2, 4]
 
 # 美林时钟参数
 merrill_lynch:
@@ -217,6 +247,6 @@ merrill_lynch:
 
 # 普林格周期参数
 pring:
-  bond_proxy: lpr
+  bond_proxy: bond_yield_10y
   stock_proxy: sh_index
   commodity_proxy: ppi

@@ -7,6 +7,7 @@ import os
 import sys
 import traceback
 import yaml
+import numpy as np
 import pandas as pd
 import akshare as ak
 from datetime import datetime, timedelta
@@ -62,12 +63,16 @@ FUNC_COLUMN_SPEC = {
         "val_col": "大型金融机构-调整前",
     },
     "macro_china_real_estate": {
-        "date_col": "月份",
-        "val_col": "当月值",
+        "date_col": "日期",
+        "val_col": "最新值",
     },
     "macro_china_fx_gold_em": {
         "date_col": "月份",
         "val_col": "国家外汇储备-数值",
+    },
+    "index_pmi_ser_cx": {
+        "date_col": "日期",
+        "val_col": "服务业PMI",
     },
     "macro_china_fiscal_revenue": {
         "date_col": "月份",
@@ -409,6 +414,153 @@ def create_fetch_function(indicator):
                 return df
             except Exception as e:
                 print(f"  [ERR] {ind_name} 获取失败: {e}")
+                traceback.print_exc()
+            return None
+        return _fetch
+
+    # ── 模式 9：全社会用电量（累计值 → 当月同比）────────────
+    if func_name == "macro_china_society_electricity":
+
+        def _fetch():
+            try:
+                df = ak.macro_china_society_electricity()
+                if df is None or df.empty:
+                    print(f"  [WARN] 全社会用电量返回空数据")
+                    return None
+                parts = df["统计时间"].astype(str).str.split(".", expand=True)
+                d = pd.DataFrame({
+                    "year": pd.to_numeric(parts[0], errors="coerce"),
+                    "month": pd.to_numeric(parts[1], errors="coerce"),
+                    "cum": pd.to_numeric(df["全社会用电量"], errors="coerce"),
+                }).dropna(subset=["year", "month", "cum"]).sort_values(["year", "month"])
+                prev_cum = d["cum"].shift(1)
+                same_year = d["year"] == d["year"].shift(1)
+                # 当年首条记录本身即当期累计（1-2月合并发布）
+                d["monthly"] = d["cum"] - np.where(same_year, prev_cum, 0.0)
+                d["ym"] = d["year"].astype(int) * 100 + d["month"].astype(int)
+                ly = d[["ym", "monthly"]].rename(columns={"monthly": "monthly_ly"}).copy()
+                ly["ym"] = ly["ym"] + 100
+                m = d.merge(ly, on="ym", how="left")
+                m["yoy"] = (m["monthly"] / m["monthly_ly"] - 1) * 100
+                m = m.dropna(subset=["yoy"]).reset_index(drop=True)
+                out = pd.DataFrame({
+                    "日期": m["year"].astype(int).astype(str) + "-"
+                            + m["month"].astype(int).astype(str).str.zfill(2) + "-01",
+                    "用电量当月同比": m["yoy"].round(2),
+                })
+                print(f"  [INFO] 用电量当月同比共 {len(out)} 条（{out.iloc[0,0]} ~ {out.iloc[-1,0]}）")
+                return out
+            except Exception as e:
+                print(f"  [ERR] 用电量获取失败: {e}")
+                traceback.print_exc()
+            return None
+        return _fetch
+
+    # ── 模式 10：固定资产投资（当月值 → 当月同比）───────────
+    if func_name == "macro_china_fixed_asset_investment":
+
+        def _fetch():
+            try:
+                df = ak.macro_china_fixed_asset_investment()
+                if df is None or df.empty:
+                    print(f"  [WARN] 固定资产投资返回空数据")
+                    return None
+                parts = df["月份"].astype(str).str.extract(r"(\d{4})年(\d{2})月份")
+                d = pd.DataFrame({
+                    "year": pd.to_numeric(parts[0], errors="coerce"),
+                    "month": pd.to_numeric(parts[1], errors="coerce"),
+                    "monthly": pd.to_numeric(df["当月"], errors="coerce"),
+                }).dropna(subset=["year", "month"]).sort_values(["year", "month"])
+                d["ym"] = d["year"].astype(int) * 100 + d["month"].astype(int)
+                ly = d[["ym", "monthly"]].rename(columns={"monthly": "monthly_ly"}).copy()
+                ly["ym"] = ly["ym"] + 100
+                m = d.merge(ly, on="ym", how="left").dropna(subset=["monthly", "monthly_ly"])
+                m["yoy"] = (m["monthly"] / m["monthly_ly"] - 1) * 100
+                m = m.reset_index(drop=True)
+                out = pd.DataFrame({
+                    "日期": m["year"].astype(int).astype(str) + "-"
+                            + m["month"].astype(int).astype(str).str.zfill(2) + "-01",
+                    "固定资产投资当月同比": m["yoy"].round(2),
+                })
+                print(f"  [INFO] 固投当月同比共 {len(out)} 条（{out.iloc[0,0]} ~ {out.iloc[-1,0]}）")
+                return out
+            except Exception as e:
+                print(f"  [ERR] 固定资产投资获取失败: {e}")
+                traceback.print_exc()
+            return None
+        return _fetch
+
+    # ── 模式 11：10 年期国债收益率 ────────────────────────────
+    if func_name == "bond_zh_us_yield_em":
+
+        def _fetch():
+            try:
+                df = ak.bond_zh_us_yield_em()
+                col = "中国国债收益率10年"
+                if df is None or df.empty or col not in df.columns:
+                    print(f"  [WARN] 国债收益率返回异常，列: {list(df.columns) if df is not None else None}")
+                    return None
+                out = df[["日期", col]].dropna().copy()
+                out.columns = ["日期", "10年国债收益率"]
+                print(f"  [INFO] 获取10年国债收益率共 {len(out)} 条数据")
+                return out
+            except Exception as e:
+                print(f"  [ERR] 国债收益率获取失败: {e}")
+                traceback.print_exc()
+            return None
+        return _fetch
+
+    # ── 模式 12：社融滚动12个月增量同比 ──────────────────────
+    if func_name == "macro_china_social_financing":
+
+        def _fetch():
+            try:
+                df = ak.macro_china_social_financing()
+                if df is None or df.empty:
+                    print(f"  [WARN] 社融数据返回空")
+                    return None
+                ym = df["月份"].astype(str).str.replace(r"\D", "", regex=True).str.zfill(6)
+                d = pd.DataFrame({
+                    "year": pd.to_numeric(ym.str[:4], errors="coerce"),
+                    "month": pd.to_numeric(ym.str[4:6], errors="coerce"),
+                    "inc": pd.to_numeric(df["社会融资规模增量"], errors="coerce"),
+                }).dropna(subset=["year", "month", "inc"]).sort_values(["year", "month"])
+                d["roll12"] = d["inc"].rolling(12, min_periods=12).sum()
+                d["yoy"] = (d["roll12"] / d["roll12"].shift(12) - 1) * 100
+                m = d.dropna(subset=["yoy"]).reset_index(drop=True)
+                out = pd.DataFrame({
+                    "日期": m["year"].astype(int).astype(str) + "-"
+                            + m["month"].astype(int).astype(str).str.zfill(2) + "-01",
+                    "社融滚动增量同比": m["yoy"].round(2),
+                })
+                print(f"  [INFO] 社融滚动增量同比共 {len(out)} 条（{out.iloc[0,0]} ~ {out.iloc[-1,0]}）")
+                return out
+            except Exception as e:
+                print(f"  [ERR] 社融数据获取失败: {e}")
+                traceback.print_exc()
+            return None
+        return _fetch
+
+    # ── 模式 13：70城房价（按城市取均值）─────────────────────
+    if func_name == "macro_china_new_house_price":
+
+        def _fetch():
+            try:
+                df = ak.macro_china_new_house_price()
+                col = "新建商品住宅价格指数-同比"
+                if df is None or df.empty or col not in df.columns:
+                    print(f"  [WARN] 房价数据异常，列: {list(df.columns) if df is not None else None}")
+                    return None
+                d = df[["日期", col]].copy()
+                d[col] = pd.to_numeric(d[col], errors="coerce")
+                d = d.dropna(subset=[col])
+                g = d.groupby("日期", as_index=False)[col].mean().sort_values("日期")
+                g.columns = ["日期", "新建住宅价格指数同比"]
+                g.iloc[:, 1] = g.iloc[:, 1].round(2)
+                print(f"  [INFO] 70城房价均值共 {len(g)} 条（{g.iloc[0,0]} ~ {g.iloc[-1,0]}）")
+                return g
+            except Exception as e:
+                print(f"  [ERR] 房价数据获取失败: {e}")
                 traceback.print_exc()
             return None
         return _fetch

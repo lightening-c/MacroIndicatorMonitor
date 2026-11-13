@@ -9,6 +9,7 @@ PYTHON = sys.executable
 STEPS = [
     ("采集数据", "fetch_data.py"),
     ("分析引擎", "analyze.py"),
+    ("数据自检", "smoke_test.py"),
 ]
 
 
