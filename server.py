@@ -7,6 +7,7 @@ import subprocess
 import sys
 import os
 import json
+import socket
 import threading
 from datetime import datetime
 
@@ -106,9 +107,28 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         print(f"[{datetime.now().strftime('%H:%M:%S')}] {args[0]}")
 
 
+class SingleInstanceHTTPServer(http.server.HTTPServer):
+    allow_reuse_address = False
+
+
+def port_in_use(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(1)
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
 def main():
     port = 4321
-    server = http.server.HTTPServer(("0.0.0.0", port), APIHandler)
+    if port_in_use(port):
+        print(f"\n[错误] 端口 {port} 已被占用，说明已有一个服务在运行。")
+        print(f"       请直接使用 http://localhost:{port} ，")
+        print(f"       或先关闭那个窗口再启动本服务。\n")
+        sys.exit(1)
+    try:
+        server = SingleInstanceHTTPServer(("0.0.0.0", port), APIHandler)
+    except OSError:
+        print(f"\n[错误] 无法绑定端口 {port}，可能已被其他程序占用。\n")
+        sys.exit(1)
     print(f"\n{'='*60}")
     print(f"  宏观数据跟踪服务器")
     print(f"  http://localhost:{port}")
