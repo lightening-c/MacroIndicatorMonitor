@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>try{if(localStorage.getItem('colorSwap')==='1')document.documentElement.classList.add('swap-colors')}catch(e){}</script>
+<script>try{var __th=localStorage.getItem('dashboardTheme')||'light';if(__th==='light')document.documentElement.classList.add('light');if(localStorage.getItem('colorSwap')==='1')document.documentElement.classList.add('swap-colors')}catch(e){}</script>
 <title>宏观周期分析报告</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -46,6 +46,27 @@ html.swap-colors {
   --status-improving: #ff3366;
   --status-deteriorating: #00e676;
 }
+html.light {
+  --bg-deep: #f4f6fa;
+  --bg-mid: #eef2f7;
+  --bg-card: rgba(255,255,255,0.94);
+  --bg-glass: rgba(255,255,255,0.72);
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --border-subtle: rgba(15,23,42,0.08);
+  --border-card: rgba(15,23,42,0.10);
+  --cyan: #0b7fab;
+  --magenta: #c2185b;
+  --gold: #b45309;
+  --status-improving: #0f8a4d;
+  --status-deteriorating: #d92d20;
+}
+html.light.swap-colors {
+  --status-improving: #d92d20;
+  --status-deteriorating: #0f8a4d;
+}
+html.light body { background: linear-gradient(180deg, #f7f9fc 0%, #eef2f7 40%, #e9eef5 100%); }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }

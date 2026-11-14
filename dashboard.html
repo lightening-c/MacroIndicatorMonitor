@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>try{if(localStorage.getItem('colorSwap')==='1')document.documentElement.classList.add('swap-colors')}catch(e){}</script>
+<script>try{var __th=localStorage.getItem('dashboardTheme')||'light';if(__th==='light')document.documentElement.classList.add('light');if(localStorage.getItem('colorSwap')==='1')document.documentElement.classList.add('swap-colors')}catch(e){}</script>
 <title>宏观经济数据跟踪面板</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="assets/echarts.min.js"></script>
 <script src="assets/market_views.js?v=20261114b"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0a0e14;--card-bg:rgba(13,17,23,0.82);--card-border:rgba(255,255,255,0.06);--cyan:#00d4ff;--magenta:#ff006e;--gold:#ffd700;--green:#00e676;--red:#ff3366;--green-bg:rgba(0,230,118,0.15);--red-bg:rgba(255,51,102,0.15);--accent-green:#00e676;--gray:#667788;--text:#c8ccd4;--text-dim:#667788}
+:root{--bg:#0a0e14;--card-bg:rgba(13,17,23,0.82);--card-border:var(--line-weak);--cyan:#00d4ff;--magenta:#ff006e;--gold:#ffd700;--green:#00e676;--red:#ff3366;--green-bg:rgba(0,230,118,0.15);--red-bg:rgba(255,51,102,0.15);--accent-green:#00e676;--gray:#667788;--text:#c8ccd4;--text-dim:#667788;--line-faint:rgba(255,255,255,0.04);--line-weak:rgba(255,255,255,0.06);--line:rgba(255,255,255,0.12);--line-strong:rgba(255,255,255,0.26);--panel-bg:rgba(13,17,23,0.6);--input-bg:rgba(13,17,23,0.85);--header-bg:rgba(10,14,20,0.92)}
 html.swap-colors{--green:#ff3366;--red:#00e676;--green-bg:rgba(255,51,102,0.15);--red-bg:rgba(0,230,118,0.15)}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;line-height:1.5;overflow-x:hidden;min-height:100vh}
 #particleCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
 .scanlines{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.08) 0px,rgba(0,0,0,0.08) 1px,transparent 1px,transparent 3px)}
 .app-container{position:relative;z-index:2;max-width:1600px;margin:0 auto;padding:0 24px}
-.header{position:sticky;top:0;z-index:100;background:rgba(10,14,20,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(0,212,255,0.15);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header{position:sticky;top:0;z-index:100;background:var(--header-bg);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(0,212,255,0.15);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .header-left h1{font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--magenta));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:0.04em}
 .header-left .subtitle{font-size:0.84rem;color:var(--text-dim);margin-top:2px}
 .header-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
@@ -51,7 +51,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 @media(max-width:1200px){.indicator-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:768px){.indicator-grid{grid-template-columns:1fr}}
 .indicator-col{background:var(--card-bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:12px;overflow:hidden;border:1px solid var(--card-border)}
-.indicator-col .col-header{padding:12px 16px;font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:600;letter-spacing:0.04em;border-bottom:1px solid rgba(255,255,255,0.06)}
+.indicator-col .col-header{padding:12px 16px;font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:600;letter-spacing:0.04em;border-bottom:1px solid var(--line-weak)}
 .col-header.leading{color:var(--cyan);border-bottom-color:rgba(0,212,255,0.3)}
 .col-header.coincident{color:var(--gold);border-bottom-color:rgba(255,215,0,0.3)}
 .col-header.lagging{color:var(--magenta);border-bottom-color:rgba(255,0,110,0.3)}
@@ -61,8 +61,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .col-header.pricing{color:#9fb3c8;border-bottom-color:rgba(159,179,200,0.3)}
 .col-header.sentiment{color:#b388ff;border-bottom-color:rgba(179,136,255,0.3)}
 .col-header.other{color:var(--text-dim);border-bottom-color:var(--card-border)}
-.ind-card{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;border-left:3px solid transparent}
-.ind-card:hover{background:rgba(255,255,255,0.03)}
+.ind-card{padding:12px 14px;border-bottom:1px solid var(--line-faint);cursor:pointer;transition:background 0.15s;border-left:3px solid transparent}
+.ind-card:hover{background:var(--line-faint)}
 .ind-card.improving{border-left-color:var(--green)}
 .ind-card.deteriorating{border-left-color:var(--red)}
 .ind-card.stable{border-left-color:var(--gray)}
@@ -87,49 +87,49 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .ind-card.expanded .ind-detail{max-height:460px;margin-top:10px}
 .detail-desc{color:var(--text-dim);line-height:1.7;margin-bottom:8px}
 .detail-table{width:100%;border-collapse:collapse}
-.detail-table th,.detail-table td{padding:3px 6px;border-bottom:1px solid rgba(255,255,255,0.05);text-align:right}
+.detail-table th,.detail-table td{padding:3px 6px;border-bottom:1px solid var(--line-faint);text-align:right}
 .detail-table th:first-child,.detail-table td:first-child{text-align:left;color:var(--text-dim)}
 .detail-table th{color:var(--text-dim);font-weight:500;font-size:0.72rem}
 .detail-foot{margin-top:8px;color:var(--text-dim);font-size:0.72rem;line-height:1.6}
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px}
-.search-input{flex:0 1 240px;padding:7px 12px;background:rgba(13,17,23,0.8);border:1px solid var(--card-border);border-radius:18px;color:var(--text);font-size:0.8rem;font-family:inherit;outline:none}
+.search-input{flex:0 1 240px;padding:7px 12px;background:var(--input-bg);border:1px solid var(--card-border);border-radius:18px;color:var(--text);font-size:0.8rem;font-family:inherit;outline:none}
 .search-input:focus{border-color:rgba(0,212,255,0.5)}
-.filter-chip{padding:5px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.12);background:none;color:var(--text-dim);font-size:0.78rem;cursor:pointer;font-family:inherit;transition:all 0.15s}
-.filter-chip:hover{color:var(--text);border-color:rgba(255,255,255,0.3)}
+.filter-chip{padding:5px 14px;border-radius:16px;border:1px solid var(--line);background:none;color:var(--text-dim);font-size:0.78rem;cursor:pointer;font-family:inherit;transition:all 0.15s}
+.filter-chip:hover{color:var(--text);border-color:var(--line-strong)}
 .filter-chip.active{color:var(--cyan);border-color:var(--cyan);background:rgba(0,212,255,0.08)}
 .toolbar-legend{margin-left:auto;font-size:0.8rem;color:var(--text-dim)}
 .toolbar-legend .lg{display:inline-block;width:8px;height:8px;border-radius:2px;margin:0 4px 0 10px;vertical-align:middle}
-.range-select{padding:6px 12px;background:rgba(13,17,23,0.9);border:1px solid var(--card-border);border-radius:8px;color:var(--text);font-size:0.78rem;font-family:inherit;cursor:pointer;margin-bottom:10px}
-.caliber-tag{font-size:0.66rem;color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);padding:0 5px;border-radius:7px;margin-left:4px}
+.range-select{padding:6px 12px;background:var(--input-bg);border:1px solid var(--card-border);border-radius:8px;color:var(--text);font-size:0.78rem;font-family:inherit;cursor:pointer;margin-bottom:10px}
+.caliber-tag{font-size:0.66rem;color:var(--text-dim);border:1px solid var(--line);padding:0 5px;border-radius:7px;margin-left:4px}
 .acc-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 @media(max-width:900px){.acc-summary{grid-template-columns:repeat(2,1fr)}}
-.acc-tile{background:rgba(13,17,23,0.6);border:1px solid var(--card-border);border-radius:10px;padding:14px}
+.acc-tile{background:var(--panel-bg);border:1px solid var(--card-border);border-radius:10px;padding:14px}
 .acc-label{font-size:0.8rem;color:var(--text-dim);margin-bottom:6px}
 .acc-val{font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:600;color:var(--cyan)}
 .acc-tile.gold .acc-val{color:var(--gold)}
 .acc-tile.magenta .acc-val{color:var(--magenta)}
 .acc-tile.warn .acc-val{color:#ff9800}
 .acc-sub{font-size:0.7rem;color:var(--text-dim);margin-top:4px}
-.acc-note{margin:12px 0 4px;font-size:0.8rem;line-height:1.8;color:var(--text);background:rgba(13,17,23,0.6);border-left:3px solid var(--cyan);padding:12px 14px;border-radius:8px}
+.acc-note{margin:12px 0 4px;font-size:0.8rem;line-height:1.8;color:var(--text);background:var(--panel-bg);border-left:3px solid var(--cyan);padding:12px 14px;border-radius:8px}
 .acc-foot{font-size:0.72rem;color:var(--text-dim);margin-top:8px;line-height:1.7}
 .acc-groups{margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .acc-tree{display:flex;flex-direction:column;gap:14px;margin-top:18px}
-.acc-method{border:1px solid var(--card-border);border-radius:12px;background:rgba(13,17,23,0.6);padding:14px 16px}
+.acc-method{border:1px solid var(--card-border);border-radius:12px;background:var(--panel-bg);padding:14px 16px}
 .acc-method-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
 .acc-method-head h4{font-size:0.95rem;color:var(--cyan);font-family:inherit;letter-spacing:0.02em}
 .acc-method-z{font-family:'Orbitron',sans-serif;font-size:1.05rem;color:var(--text-dim)}
 .acc-tree-groups{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 @media(max-width:900px){.acc-tree-groups{grid-template-columns:1fr}}
-.acc-tree-group{border:1px dashed rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px}
+.acc-tree-group{border:1px dashed var(--line);border-radius:8px;padding:10px 12px}
 .acc-tree-group .g-head{display:flex;justify-content:space-between;font-size:0.82rem;color:var(--gold);margin-bottom:6px}
-.acc-tree-item{display:flex;justify-content:space-between;align-items:baseline;font-size:0.76rem;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);gap:6px}
+.acc-tree-item{display:flex;justify-content:space-between;align-items:baseline;font-size:0.76rem;padding:3px 0;border-bottom:1px solid var(--line-faint);gap:6px}
 .acc-tree-item:last-child{border-bottom:none}
 .acc-tree-item .c{color:var(--text-dim);font-size:0.7rem;margin-left:auto;white-space:nowrap}
 .acc-tree-item .v{white-space:nowrap}
 @media(max-width:900px){.acc-groups{grid-template-columns:1fr}}
-.acc-group-card{background:rgba(13,17,23,0.6);border:1px solid var(--card-border);border-radius:10px;padding:12px 14px}
+.acc-group-card{background:var(--panel-bg);border:1px solid var(--card-border);border-radius:10px;padding:12px 14px}
 .acc-group-card h4{font-size:0.8rem;color:var(--cyan);margin-bottom:8px;font-family:inherit}
-.acc-row{display:flex;justify-content:space-between;align-items:baseline;font-size:0.76rem;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);gap:8px}
+.acc-row{display:flex;justify-content:space-between;align-items:baseline;font-size:0.76rem;padding:4px 0;border-bottom:1px solid var(--line-faint);gap:8px}
 .acc-row .v{color:var(--text);white-space:nowrap}
 .acc-row .d{color:var(--text-dim);font-size:0.7rem;margin-left:auto;white-space:nowrap}
 @media(max-width:768px){.app-container{padding:0 12px}.header{padding:12px}.header-right{gap:8px}.toolbar{gap:6px}.search-input{flex:1 1 100%}.toolbar-legend{margin-left:0;width:100%}.tab-chart{height:360px}}
@@ -142,14 +142,14 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .tab-panel.active{display:block}
 .tab-chart{width:100%;height:520px}
 .checkbox-group{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.checkbox-group label{font-size:0.76rem;padding:4px 10px;border-radius:14px;border:1px solid rgba(255,255,255,0.12);cursor:pointer;user-select:none;transition:all 0.15s;color:var(--text-dim)}
-.checkbox-group label:hover{border-color:rgba(255,255,255,0.3)}
+.checkbox-group label{font-size:0.76rem;padding:4px 10px;border-radius:14px;border:1px solid var(--line);cursor:pointer;user-select:none;transition:all 0.15s;color:var(--text-dim)}
+.checkbox-group label:hover{border-color:var(--line-strong)}
 .checkbox-group input{display:none}
 .checkbox-group label:has(input:checked){border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,0.08)}
-.decomp-select{padding:8px 14px;background:rgba(13,17,23,0.9);border:1px solid var(--card-border);border-radius:8px;color:var(--text);font-size:0.82rem;font-family:inherit;margin-bottom:16px;cursor:pointer;min-width:220px}
+.decomp-select{padding:8px 14px;background:var(--input-bg);border:1px solid var(--card-border);border-radius:8px;color:var(--text);font-size:0.82rem;font-family:inherit;margin-bottom:16px;cursor:pointer;min-width:220px}
 .decomp-panels{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 @media(max-width:900px){.decomp-panels{grid-template-columns:1fr}}
-.decomp-panel-card{background:rgba(13,17,23,0.6);border:1px solid var(--card-border);border-radius:10px;padding:14px}
+.decomp-panel-card{background:var(--panel-bg);border:1px solid var(--card-border);border-radius:10px;padding:14px}
 .decomp-panel-card h4{font-family:'Orbitron',sans-serif;font-size:0.75rem;letter-spacing:0.04em;margin-bottom:8px}
 .decomp-panel-card .decomp-chart{width:100%;height:280px}
 .cycle-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}
@@ -160,7 +160,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .cm-card.full{grid-column:1/-1}
 .cm-card.full li{line-height:1.9}
 .cm-k{color:var(--gold);font-weight:600}
-.mv-item{padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+.mv-item{padding:10px 0;border-bottom:1px solid var(--line-faint)}
 .mv-item:last-child{border-bottom:none}
 .mv-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:0.78rem;margin-bottom:4px}
 .mv-org{color:#fff;font-weight:600}
@@ -179,7 +179,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .file-banner a{color:var(--cyan);text-decoration:underline}
 .mv-link{font-size:0.72rem;color:var(--cyan);text-decoration:none;margin-left:6px;white-space:nowrap}
 .mv-link:hover{text-decoration:underline}
-.news-item{display:flex;gap:10px;align-items:baseline;font-size:0.78rem;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.news-item{display:flex;gap:10px;align-items:baseline;font-size:0.78rem;padding:5px 0;border-bottom:1px solid var(--line-faint)}
 .news-time{color:var(--text-dim);white-space:nowrap;font-size:0.72rem;font-variant-numeric:tabular-nums}
 .news-title a{color:var(--text);text-decoration:none}
 .news-title a:hover{color:var(--cyan);text-decoration:underline}
@@ -200,12 +200,12 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .cycle-card .ml-quadrant{font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:700;color:var(--green)}
 .cycle-card .ml-allocation{margin-top:8px;font-size:0.75rem;padding:8px 12px;border-radius:8px;background:var(--green-bg);border-left:3px solid var(--green)}
 .cycle-card .pring-signals{display:flex;gap:10px;margin-top:8px}
-.pring-sig{flex:1;text-align:center;padding:10px 6px;border-radius:8px;border:1px solid var(--card-border);background:rgba(13,17,23,0.6)}
+.pring-sig{flex:1;text-align:center;padding:10px 6px;border-radius:8px;border:1px solid var(--card-border);background:var(--panel-bg)}
 .pring-sig .sig-label{font-size:0.72rem;color:var(--text-dim)}
 .pring-sig .sig-val{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:600;margin-top:4px}
 .pring-sig .sig-arrow{font-size:0.7rem;font-weight:700;margin-top:2px}
 .sig-arrow.up{color:var(--green)}.sig-arrow.down{color:var(--red)}.sig-arrow.stable{color:var(--gray)}
-.cycle-card .diag-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.8rem}
+.cycle-card .diag-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line-faint);font-size:0.8rem}
 .diag-row .diag-label{color:var(--text-dim)}
 .diag-row .diag-val{font-weight:600}
 .diag-val.up{color:var(--green)}.diag-val.down{color:var(--red)}.diag-val.stable{color:var(--gray)}
@@ -218,15 +218,28 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .footer p{margin:4px 0}
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.2)}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--line-strong)}
+
+html.light{--bg:#f4f6fa;--card-bg:rgba(255,255,255,0.94);--card-border:rgba(15,23,42,0.09);
+--text:#1f2937;--text-dim:#5b6b7f;--cyan:#0b7fab;--magenta:#c2185b;--gold:#b45309;
+--green:#0f8a4d;--red:#d92d20;--gray:#6b7280;--accent-green:#0f8a4d;
+--green-bg:rgba(15,138,77,0.12);--red-bg:rgba(217,45,32,0.10);
+--line-faint:rgba(15,23,42,0.05);--line-weak:rgba(15,23,42,0.08);
+--line:rgba(15,23,42,0.13);--line-strong:rgba(15,23,42,0.22);
+--panel-bg:rgba(255,255,255,0.7);--input-bg:#ffffff;--header-bg:rgba(255,255,255,0.94)}
+html.light .scanlines,html.light #particleCanvas{display:none}
+html.light .ind-card .ind-name,html.light .cm-card b,html.light .mv-org{color:#111827}
+html.light .kpi-tile:hover{box-shadow:0 8px 24px rgba(15,23,42,0.10)}
+html.light .footer{color:#64748b}
+html.light.swap-colors{--green:#d92d20;--red:#0f8a4d;--green-bg:rgba(217,45,32,0.12);--red-bg:rgba(15,138,77,0.12)}
 </style>
 </head>
 <body>
 <canvas id="particleCanvas"></canvas>
 <div class="scanlines"></div>
 <div class="app-container">
-<header class="header"><div class="header-left"><h1>宏观经济指标</h1><div class="subtitle">中国宏观经济监测系统 · 领先/同步/滞后指标分析</div></div><div class="header-right"><div id="liveClock"></div><div class="cycle-badge" id="cycleBadge">--</div><div class="health-badge" id="healthBadge" title="">--</div><button id="syncBtn" class="sync-btn" onclick="triggerUpdate()">同步更新</button><a href="cycle_report.html" class="report-link">周期报告</a></div></header>
+<header class="header"><div class="header-left"><h1>宏观经济指标</h1><div class="subtitle">中国宏观经济监测系统 · 领先/同步/滞后指标分析</div></div><div class="header-right"><div id="liveClock"></div><div class="cycle-badge" id="cycleBadge">--</div><div class="health-badge" id="healthBadge" title="">--</div><button id="themeBtn" class="sync-btn" onclick="toggleTheme()">深色模式</button><button id="syncBtn" class="sync-btn" onclick="triggerUpdate()">同步更新</button><a href="cycle_report.html" class="report-link">周期报告</a></div></header>
 <div class="kpi-row" id="kpiRow"></div>
 <div class="section-title">宏观经济指标</div>
 <div class="toolbar"><input id="indSearch" class="search-input" type="search" placeholder="搜索指标名称…"><button class="filter-chip active" data-filter="all">全部</button><button class="filter-chip" data-filter="leading">领先</button><button class="filter-chip" data-filter="coincident">同步</button><button class="filter-chip" data-filter="lagging">滞后</button><button class="filter-chip" data-filter="stale">仅看陈旧</button><select id="caliberFilter" class="range-select" style="margin:0"><option value="">全部口径</option><option>生产法</option><option>支出法</option><option>收入法</option><option>价格金融</option><option>景气预期</option></select><select id="groupMode" class="range-select" style="margin:0" title="切换指标矩阵的分组方式"><option value="cycle">按周期分组</option><option value="caliber">按核算分组</option></select><button id="colorSwapBtn" class="filter-chip" title="切换改善色：绿=改善 / 红=改善">绿=改善</button><div class="toolbar-legend"><span class="lg" style="background:var(--green)"></span>改善<span class="lg" style="background:var(--red)"></span>恶化<span class="lg" style="background:#ff9800"></span>数据陈旧</div></div>
@@ -255,7 +268,8 @@ function formatDate(d){if(!d)return'--';return d.substring(0,7)}
 function sigLabel(s){if(s==='improving')return'改善';if(s==='deteriorating')return'恶化';return'稳定'}
 function dirLabel(d){if(d==='up')return'上升 ▲';if(d==='down')return'下降 ▼';return'稳定 →'}
 function drawSparkline(cv,data,color){if(!cv||!data||data.length<2)return;var dpr=window.devicePixelRatio||1;var w=cv.clientWidth||200;var h=cv.clientHeight||36;cv.width=w*dpr;cv.height=h*dpr;var ctx=cv.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);var min=Infinity,max=-Infinity;for(var i=0;i<data.length;i++){if(data[i]<min)min=data[i];if(data[i]>max)max=data[i]}var range=max-min||1;var px=2,py=3;var gw=w-px*2,gh=h-py*2;ctx.beginPath();ctx.strokeStyle=color||'#00d4ff';ctx.lineWidth=1.5;ctx.lineJoin='round';for(var i=0;i<data.length;i++){var x=px+(i/(data.length-1))*gw;var y=py+gh-((data[i]-min)/range)*gh;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.stroke();ctx.lineTo(px+gw,py+gh);ctx.lineTo(px,py+gh);ctx.closePath();var grad=ctx.createLinearGradient(0,py,0,py+gh);grad.addColorStop(0,(color||'#00d4ff')+'33');grad.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=grad;ctx.fill()}
-function darkTheme(extra){extra=extra||{};if(!extra.grid)extra.grid={left:'3%',right:'5%',top:45,bottom:35,containLabel:true};if(!extra.tooltip)extra.tooltip={trigger:'axis',backgroundColor:'rgba(10,14,20,0.94)',borderColor:'#333',textStyle:{color:'#ccc',fontSize:12}};if(!extra.xAxis)extra.xAxis={type:'category',axisLine:{lineStyle:{color:'#333'}},axisTick:{show:false},axisLabel:{color:'#667788',fontSize:10}};if(!extra.yAxis)extra.yAxis={type:'value',splitLine:{lineStyle:{color:'rgba(255,255,255,0.06)'}},axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'#667788',fontSize:10}};extra.backgroundColor='transparent';return extra}
+function isLight(){return document.documentElement.classList.contains('light')}
+function darkTheme(extra){extra=extra||{};var L=isLight();var tc=L?{axis:'#cbd5e1',label:'#64748b',split:'rgba(15,23,42,0.08)',tipBg:'rgba(255,255,255,0.97)',tipBorder:'#e2e8f0',tipText:'#1f2937'}:{axis:'#333',label:'#667788',split:'rgba(255,255,255,0.06)',tipBg:'rgba(10,14,20,0.94)',tipBorder:'#333',tipText:'#ccc'};if(!extra.grid)extra.grid={left:'3%',right:'5%',top:45,bottom:35,containLabel:true};if(!extra.tooltip)extra.tooltip={trigger:'axis',backgroundColor:tc.tipBg,borderColor:tc.tipBorder,textStyle:{color:tc.tipText,fontSize:12}};if(!extra.xAxis)extra.xAxis={type:'category',axisLine:{lineStyle:{color:tc.axis}},axisTick:{show:false},axisLabel:{color:tc.label,fontSize:10}};if(!extra.yAxis)extra.yAxis={type:'value',splitLine:{lineStyle:{color:tc.split}},axisLine:{show:false},axisTick:{show:false},axisLabel:{color:tc.label,fontSize:10}};extra.backgroundColor='transparent';return extra}
 function resizeAll(){Object.keys(charts).forEach(function(k){if(charts[k]&&charts[k].resize)charts[k].resize()})}
 function findIndById(id,D){var cats=['leading','coincident','lagging'];for(var c=0;c<cats.length;c++){var arr=D.indicators[cats[c]]||[];for(var i=0;i<arr.length;i++){if(arr[i].id===id)return arr[i]}}return null}
 function allIndicators(D){var all=[];['leading','coincident','lagging'].forEach(function(cat){(D.indicators[cat]||[]).forEach(function(ind){if(ind.ts_data&&ind.ts_data.length>0){all.push({id:ind.id,name:ind.name,category:cat,ts_data:ind.ts_data})}})});return all}
@@ -359,7 +373,9 @@ var newsTimer=null;
 function initFileBanner(){if(location.protocol!=='file:')return;var c=document.querySelector('.app-container');if(!c||document.querySelector('.file-banner'))return;var b=document.createElement('div');b.className='file-banner';b.innerHTML='当前以本地文件方式打开，实时快讯与一键更新不可用。请双击项目目录下的 start.bat 启动服务，然后访问 <a href="http://localhost:4321/dashboard.html">http://localhost:4321</a>。';c.insertBefore(b,c.firstChild)}
 function initNews(){var box=document.getElementById('newsList');if(!box)return;var btn=document.getElementById('newsRefresh');if(btn)btn.addEventListener('click',function(){loadNews(true)});if(location.protocol==='file:'){box.innerHTML='<div class="mv-note">实时快讯需要本地服务。请先双击项目目录下的 start.bat，然后访问 <a href="http://localhost:4321/dashboard.html" style="color:var(--cyan);text-decoration:underline;">http://localhost:4321</a>。</div>';fetch('http://localhost:4321/api/status',{cache:'no-store'}).then(function(r){return r.json()}).then(function(){box.innerHTML='<div class="mv-note">检测到本地服务正在运行，正在打开在线版…</div>';setTimeout(function(){location.replace('http://localhost:4321/dashboard.html')},800)}).catch(function(){});return}loadNews(false);if(!newsTimer)newsTimer=setInterval(function(){loadNews(false)},300000)}
 function buildCycleCards(D){var ml=D.merrill_lynch||{};var mh='<h3 style="color:'+okColor()+';">美林时钟 Merrill Lynch Clock</h3>';mh+='<div class="ml-info"><span>象限：</span><span class="ml-quadrant">'+(ml.quadrant||'--')+'</span></div>';mh+='<div class="ml-info"><span>增长 X：</span>'+fmtNum(ml.x,3)+' · <span>通胀 Y：</span>'+fmtNum(ml.y,3)+'</div>';mh+='<div class="ml-allocation">'+(ml.advice||'--')+'</div>';mh+='<div class="ml-info" style="margin-top:10px;"><span>资产配置：</span>'+(ml.asset_allocation||'--')+'</div>';document.getElementById('merrillCard').innerHTML=mh;var pr=D.pring||{};var ph='<h3 style="color:#00d4ff;">普林格周期 Pring Cycle</h3>';ph+='<div class="ml-info"><span>阶段：</span><strong>'+(pr.stage||'--')+'</strong></div>';ph+='<div class="ml-info" style="font-size:0.75rem;color:#8899aa;">'+(pr.description||'')+'</div>';ph+='<div class="pring-signals">';function ps(l,s,i,v){var sc2=s||'stable';var ar=sc2==='up'?'▲':sc2==='down'?'▼':'→';var tx=sc2==='up'?'看多':sc2==='down'?'看空':'中性';return'<div class="pring-sig"><div class="sig-label">'+l+' ('+(i||'')+')</div><div class="sig-val">'+fmtNum(v,2)+'</div><div class="sig-arrow '+sc2+'">'+ar+' '+tx+'</div></div>'}ph+=ps('债券',pr.bond_signal,pr.bond_indicator,pr.bond_proxy_value);ph+=ps('股票',pr.stock_signal,pr.stock_indicator,pr.stock_proxy_value);ph+=ps('商品',pr.commodity_signal,pr.commodity_indicator,pr.commodity_proxy_value);ph+='</div>';document.getElementById('pringCard').innerHTML=ph;var cp=D.cycle_phase||{};var s=D.summary||{};var dh='<h3 style="color:#ff006e;">一致性诊断 Diagnosis</h3>';dh+='<div class="ml-info"><span>周期阶段：</span><strong>'+(cp.phase||'--')+'</strong></div>';dh+='<div class="ml-info" style="font-size:0.75rem;color:#8899aa;margin-bottom:8px;">'+(cp.description||'')+'</div>';dh+='<div class="diag-row"><span class="diag-label">领先指标方向</span><span class="diag-val '+(cp.leading_majority||'')+'">'+dirLabel(cp.leading_majority)+'</span></div>';dh+='<div class="diag-row"><span class="diag-label">同步指标方向</span><span class="diag-val '+(cp.coincident_majority||'')+'">'+dirLabel(cp.coincident_majority)+'</span></div>';dh+='<div class="diag-row"><span class="diag-label">滞后指标方向</span><span class="diag-val '+(cp.lagging_majority||'')+'">'+dirLabel(cp.lagging_majority)+'</span></div>';dh+='<div class="summary-stats">';dh+='<span class="stat-chip good">领先改善 '+(s.leading_improving||0)+'</span>';dh+='<span class="stat-chip bad">领先恶化 '+(s.leading_deteriorating||0)+'</span>';dh+='<span class="stat-chip good">同步改善 '+(s.coincident_improving||0)+'</span>';dh+='<span class="stat-chip bad">同步恶化 '+(s.coincident_deteriorating||0)+'</span>';dh+='</div>';document.getElementById('diagCard').innerHTML=dh}
-function initApp(D){document.getElementById('updateTime').textContent=D.update_time||'--';var cycleBadge=document.getElementById('cycleBadge');cycleBadge.style.display='none';var H=D.data_health||{};var hb=document.getElementById('healthBadge');if(hb){if(H.stale_count){hb.className='health-badge warn';hb.textContent='数据陈旧 '+H.stale_count+' 项';hb.title=(H.stale||[]).map(function(x){return x.name+' · 最新 '+x.latest_date+'（'+x.age_days+' 天前）'}).join('\n')}else{hb.className='health-badge';hb.textContent='数据完整';hb.title=''}};function tick(){var now=new Date();document.getElementById('liveClock').textContent=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0')}tick();setInterval(tick,1000);buildKpiRow(D);buildIndicatorGrid(D);initToolbar();initGroupMode();initColorSwap();initFileBanner();buildTrendTab(D);buildAccounting(D);buildCommentary(D);initNews();buildHeatmap(D);buildComposite(D);buildDecomp(D);buildCycleCards(D);document.querySelectorAll('.tab-btn').forEach(function(btn){btn.addEventListener('click',function(){var tabId=this.getAttribute('data-tab');document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});this.classList.add('active');document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active')});document.getElementById(tabId).classList.add('active');setTimeout(function(){resizeAll()},150)})});window.addEventListener('resize',function(){resizeAll()})}
+function initApp(D){document.getElementById('updateTime').textContent=D.update_time||'--';var cycleBadge=document.getElementById('cycleBadge');cycleBadge.style.display='none';var H=D.data_health||{};var hb=document.getElementById('healthBadge');if(hb){if(H.stale_count){hb.className='health-badge warn';hb.textContent='数据陈旧 '+H.stale_count+' 项';hb.title=(H.stale||[]).map(function(x){return x.name+' · 最新 '+x.latest_date+'（'+x.age_days+' 天前）'}).join('\n')}else{hb.className='health-badge';hb.textContent='数据完整';hb.title=''}};function tick(){var now=new Date();document.getElementById('liveClock').textContent=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0')}tick();setInterval(tick,1000);initTheme();buildKpiRow(D);buildIndicatorGrid(D);initToolbar();initGroupMode();initColorSwap();initFileBanner();buildTrendTab(D);buildAccounting(D);buildCommentary(D);initNews();buildHeatmap(D);buildComposite(D);buildDecomp(D);buildCycleCards(D);document.querySelectorAll('.tab-btn').forEach(function(btn){btn.addEventListener('click',function(){var tabId=this.getAttribute('data-tab');document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});this.classList.add('active');document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active')});document.getElementById(tabId).classList.add('active');setTimeout(function(){resizeAll()},150)})});window.addEventListener('resize',function(){resizeAll()})}
+function toggleTheme(){var light=document.documentElement.classList.contains('light');try{localStorage.setItem('dashboardTheme',light?'dark':'light')}catch(e){}location.reload()}
+function initTheme(){var b=document.getElementById('themeBtn');if(!b)return;b.textContent=isLight()?'深色模式':'浅色模式'}
 window.triggerUpdate=function(){var b=document.getElementById('syncBtn');if(!b)return;if(location.protocol==='file:'){b.textContent='需启动服务';setTimeout(function(){b.textContent='同步更新'},3000);return;}b.disabled=true;b.textContent='更新中...';b.classList.add('updating');fetch('/api/update',{method:'POST'}).then(function(r){return r.json()}).then(function(d){if(d.ok){b.textContent='已启动';setTimeout(function(){b.textContent='同步更新';b.classList.remove('updating');b.disabled=false;pollUpdateStatus()},2000)}else{b.textContent=d.message||'失败';b.classList.remove('updating');b.disabled=false}}).catch(function(e){b.textContent='连接失败';b.classList.remove('updating');b.disabled=false})};
 function pollUpdateStatus(){var b=document.getElementById('syncBtn');var iv=setInterval(function(){fetch('/api/status').then(function(r){return r.json()}).then(function(s){if(s.running){if(s.current_step)b.textContent='更新中 '+s.current_step;return}clearInterval(iv);b.textContent='同步更新';b.disabled=false;b.classList.remove('updating');if(s.last_result&&s.last_result.success){b.textContent='已更新';setTimeout(function(){b.textContent='同步更新'},3000);location.reload()}else{b.textContent='更新失败';setTimeout(function(){b.textContent='同步更新'},3000)}})},3000);setTimeout(function(){clearInterval(iv);b.textContent='同步更新';b.disabled=false;b.classList.remove('updating')},120000)}
 (function(){function showHint(){document.body.insertAdjacentHTML('afterbegin','<div style="position:fixed;inset:0;z-index:99999;background:#0d1117;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#e6edf3;font-family:system-ui,sans-serif;text-align:center;padding:24px;"><h2 style="color:#00d4ff;">未找到数据文件</h2><p style="color:#8899aa;max-width:480px;line-height:1.8;">请先采集一次数据：双击项目目录下的 <b>start.bat</b> 启动服务，访问 http://localhost:4321 并点击"同步更新"。</p></div>')}var s=document.createElement('script');s.src='data/analysis_data.js?v='+Date.now();s.onload=function(){if(window.__ANALYSIS_DATA__){initApp(window.__ANALYSIS_DATA__)}else{showHint()}};s.onerror=showHint;document.head.appendChild(s)})();
