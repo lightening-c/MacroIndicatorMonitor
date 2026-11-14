@@ -678,7 +678,7 @@ def compute_composite_index(ind_entries):
 # ---------------------------------------------------------------------------
 # Merrill Lynch Clock
 # ---------------------------------------------------------------------------
-def compute_merrill_lynch(growth_ts_list, infl_ts_list):
+def compute_merrill_lynch(growth_ts_list, infl_ts_list, g_ids=None, i_ids=None):
     """
     Merrill Lynch Investment Clock — absolute-threshold scoring.
 
@@ -714,8 +714,8 @@ def compute_merrill_lynch(growth_ts_list, infl_ts_list):
     # [{date: "YYYY-MM-DD", value: ...}, ...] for one indicator.
     # They may have different date ranges; build {date: value} lookups.
     # ------------------------------------------------------------------
-    G_IDS = ["pmi_manufacturing", "industrial_production", "gdp_growth"]
-    I_IDS = ["cpi", "ppi"]
+    G_IDS = list(g_ids) if g_ids else ["pmi_manufacturing", "industrial_production", "gdp_growth"]
+    I_IDS = list(i_ids) if i_ids else ["cpi", "ppi"]
     # CPI is the core consumer inflation gauge; PPI is upstream and
     # often diverges (e.g. PPI +4 % while CPI +1 %).  Weighted 70/30
     # so that CPI dominates the Y-axis signal.
@@ -827,7 +827,11 @@ def compute_merrill_lynch(growth_ts_list, infl_ts_list):
                            "y": round(max(-2.0, min(2.0, ty)), 4)})
 
     return {"x": round(x, 4), "y": round(y, 4), "quadrant": quad,
-            "asset_allocation": alloc, "advice": adv, "trajectory": trajectory}
+            "asset_allocation": alloc, "advice": adv, "trajectory": trajectory,
+        "g_parts": {k: round(v, 3) for k, v in g_parts.items()},
+        "i_parts": {k: round(v, 3) for k, v in i_parts.items()},
+        "thresholds": {k: {"neutral": v[0], "width": v[1]} for k, v in THRESH.items()},
+        "g_weights": G_WEIGHTS, "i_weights": I_WEIGHTS}
 
 
 # ---------------------------------------------------------------------------
@@ -1056,7 +1060,7 @@ def run_analysis():
     g_ts = [ind_data.get(gid, {}).get("ts_data", []) for gid in growth_ids]
     i_ts = [ind_data.get(iid, {}).get("ts_data", []) for iid in inflation_ids]
 
-    ml = compute_merrill_lynch(g_ts, i_ts)
+    ml = compute_merrill_lynch(g_ts, i_ts, growth_ids, inflation_ids)
     results["merrill_lynch"] = {
         **ml,
         "growth_indicators": growth_ids,
