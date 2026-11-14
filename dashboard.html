@@ -210,6 +210,18 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .stage-chip{flex:1;min-width:72px;text-align:center;padding:5px 4px;border-radius:8px;border:1px solid var(--line);font-size:0.68rem;color:var(--text-dim);line-height:1.5}
 .stage-chip.active{border-color:var(--cyan);color:var(--cyan);background:rgba(11,127,171,0.08);font-weight:600}
 .stage-chip.trans{flex:0 0 auto;border-style:dashed;margin-top:6px}
+.pring-matrix-wrap{overflow-x:auto;margin-top:10px}
+.pring-matrix{width:100%;border-collapse:collapse;font-size:0.72rem;min-width:430px}
+.pring-matrix th,.pring-matrix td{padding:5px 4px;text-align:center;border-bottom:1px solid var(--line-faint)}
+.pring-matrix th{color:var(--text-dim);font-weight:500;font-size:0.68rem;line-height:1.35}
+.pring-matrix th span{display:block;font-size:0.62rem;color:var(--text-dim);font-weight:400}
+.pring-matrix th.cur{color:var(--cyan);border-bottom:2px solid var(--cyan)}
+.pring-matrix td.pm-name{text-align:left;color:var(--text-dim);white-space:nowrap}
+.pring-matrix td.cur{background:rgba(11,127,171,0.06)}
+.pring-matrix td.pm-actual{font-weight:700}
+.pm-up{color:var(--green);font-weight:700}
+.pm-down{color:var(--red);font-weight:700}
+.pm-flat{color:var(--text-dim)}
 .cycle-card h3{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:600;letter-spacing:0.04em;margin-bottom:14px}
 .cycle-card .ml-info{margin-bottom:10px;font-size:0.82rem}
 .cycle-card .ml-info span{color:var(--text-dim)}
@@ -413,9 +425,16 @@ function seriesFor(id,invert){var ind=cycleFind(D,id);if(!ind||!ind.ts_data)retu
 var ids=[pr.bond_proxy_id,pr.stock_proxy_id,pr.commodity_proxy_id];var names=['债券（收益率反向）','股票','商品（PPI）'];var cols=['#0b7fab','#b45309','#c2185b'];
 var chart=echarts.init(el);charts.pringDetail=chart;var lab=cssVar('--text-dim')||'#475569';
 chart.setOption({backgroundColor:'transparent',color:cols,tooltip:{trigger:'axis'},legend:{data:names,bottom:0,textStyle:{color:lab,fontSize:11}},grid:{left:10,right:14,top:20,bottom:42,containLabel:true},xAxis:{type:'time',axisLabel:{color:lab,fontSize:10}},yAxis:{type:'value',name:'标准化',nameTextStyle:{color:lab},axisLabel:{color:lab,fontSize:10},splitLine:{lineStyle:{color:cssVar('--line-faint')||'#eef2f7'}}},series:names.map(function(n,i){return {name:n,type:'line',data:seriesFor(ids[i],i===0),showSymbol:false,smooth:true,lineStyle:{width:2}}})});
-var stages=[['阶段1','衰退初期'],['阶段2','复苏初期'],['阶段3','全面牛市'],['阶段4','过热初期'],['阶段5','滞胀'],['阶段6','全面衰退']];var m=(pr.stage||'').match(/阶段[1-6]/);var cur=m?m[0]:null;
-var lh='<div class="stage-ladder">'+stages.map(function(s){return '<div class="stage-chip'+(cur===s[0]?' active':'')+'">'+s[0]+'<br>'+s[1]+'</div>'}).join('')+'</div>';
-if(!cur)lh+='<div class="stage-chip trans active">当前：过渡期（'+({up:'看多',down:'看空',stable:'中性'}[pr.bond_signal]||'')+'/'+({up:'看多',down:'看空',stable:'中性'}[pr.stock_signal]||'')+'/'+({up:'看多',down:'看空',stable:'中性'}[pr.commodity_signal]||'')+'）</div>';
+var sigMap={'阶段1':['up','down','down'],'阶段2':['up','up','down'],'阶段3':['up','up','up'],'阶段4':['down','up','up'],'阶段5':['down','down','up'],'阶段6':['down','down','down']};
+var stageNames={'阶段1':'衰退初期','阶段2':'复苏初期','阶段3':'全面牛市','阶段4':'过热初期','阶段5':'滞胀','阶段6':'全面衰退'};
+var m=(pr.stage||'').match(/阶段[1-6]/);var cur=m?m[0]:null;var actual=[pr.bond_signal,pr.stock_signal,pr.commodity_signal];
+function arr(s){return s==='up'?'<span class="pm-up">▲</span>':(s==='down'?'<span class="pm-down">▼</span>':'<span class="pm-flat">→</span>')}
+var keys=Object.keys(sigMap);var sT={up:'看多',down:'看空',stable:'中性'};
+var lh='<div class="pring-matrix-wrap"><table class="pring-matrix"><thead><tr><th></th>'+keys.map(function(k){return '<th class="'+(cur===k?'cur':'')+'">'+k+'<span>'+stageNames[k]+'</span></th>'}).join('')+'<th class="pm-nowcol">当前</th></tr></thead><tbody>';
+[['债券',0],['股票',1],['商品',2]].forEach(function(row){lh+='<tr><td class="pm-name">'+row[0]+'</td>'+keys.map(function(k){return '<td class="'+(cur===k?'cur':'')+'">'+arr(sigMap[k][row[1]])+'</td>'}).join('')+'<td class="pm-actual">'+arr(actual[row[1]])+'</td></tr>'});
+lh+='</tbody></table></div>';
+if(cur){var w=pr.asset_weights||{};lh+='<div class="mv-note" style="margin-top:6px;">当前处于 '+cur+'（'+stageNames[cur]+'）；该阶段配置：'+['债券','股票','商品','现金'].filter(function(k){return w[k]}).map(function(k){return k+' '+w[k]}).join('、')+'。</div>'}
+else{lh+='<div class="mv-note" style="margin-top:6px;">当前信号混合（债'+sT[pr.bond_signal]+' / 股'+sT[pr.stock_signal]+' / 商'+sT[pr.commodity_signal]+'），未落入六个标准阶段中的任何一个，按「过渡期」处理。</div>'}
 document.getElementById('pringLadder').innerHTML=lh;
 var sigTxt={up:'看多',down:'看空',stable:'中性'};
 var rowsHtml=[['债券',pr.bond_indicator,pr.bond_proxy_value,pringChange(D,pr.bond_proxy_id,true),pr.bond_signal],['股票',pr.stock_indicator,pr.stock_proxy_value,pringChange(D,pr.stock_proxy_id,false),pr.stock_signal],['商品',pr.commodity_indicator,pr.commodity_proxy_value,pringChange(D,pr.commodity_proxy_id,false),pr.commodity_signal]].map(function(r){return '<tr><td>'+r[0]+'</td><td>'+(r[1]||'--')+'</td><td>'+(r[2]==null?'--':fmtNum(r[2],2))+'</td><td>'+(r[3]==null?'--':(r[3]>0?'+':'')+fmtNum(r[3],2))+'</td><td>'+(sigTxt[r[4]]||'--')+'</td></tr>'}).join('');
