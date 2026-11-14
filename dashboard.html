@@ -97,14 +97,14 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .filter-chip{padding:5px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.12);background:none;color:var(--text-dim);font-size:0.78rem;cursor:pointer;font-family:inherit;transition:all 0.15s}
 .filter-chip:hover{color:var(--text);border-color:rgba(255,255,255,0.3)}
 .filter-chip.active{color:var(--cyan);border-color:var(--cyan);background:rgba(0,212,255,0.08)}
-.toolbar-legend{margin-left:auto;font-size:0.74rem;color:var(--text-dim)}
+.toolbar-legend{margin-left:auto;font-size:0.8rem;color:var(--text-dim)}
 .toolbar-legend .lg{display:inline-block;width:8px;height:8px;border-radius:2px;margin:0 4px 0 10px;vertical-align:middle}
 .range-select{padding:6px 12px;background:rgba(13,17,23,0.9);border:1px solid var(--card-border);border-radius:8px;color:var(--text);font-size:0.78rem;font-family:inherit;cursor:pointer;margin-bottom:10px}
 .caliber-tag{font-size:0.66rem;color:var(--text-dim);border:1px solid rgba(255,255,255,0.12);padding:0 5px;border-radius:7px;margin-left:4px}
 .acc-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 @media(max-width:900px){.acc-summary{grid-template-columns:repeat(2,1fr)}}
 .acc-tile{background:rgba(13,17,23,0.6);border:1px solid var(--card-border);border-radius:10px;padding:14px}
-.acc-label{font-size:0.74rem;color:var(--text-dim);margin-bottom:6px}
+.acc-label{font-size:0.8rem;color:var(--text-dim);margin-bottom:6px}
 .acc-val{font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:600;color:var(--cyan)}
 .acc-tile.gold .acc-val{color:var(--gold)}
 .acc-tile.magenta .acc-val{color:var(--magenta)}
@@ -170,7 +170,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .mv-stance.part{color:var(--gold);border-color:var(--gold);background:rgba(255,215,0,0.08)}
 .mv-stance.diff{color:var(--red);border-color:var(--red);background:var(--red-bg)}
 .mv-view{font-size:0.78rem;line-height:1.75;color:var(--text)}
-.mv-note{font-size:0.72rem;line-height:1.7;color:var(--text-dim);margin-top:2px}
+.mv-note{font-size:0.82rem;line-height:1.8;color:#9fb0c2;margin-top:3px}
+.mv-note .k{color:var(--gold);font-weight:600}
 .mv-link{font-size:0.72rem;color:var(--cyan);text-decoration:none;margin-left:6px;white-space:nowrap}
 .mv-link:hover{text-decoration:underline}
 .news-item{display:flex;gap:10px;align-items:baseline;font-size:0.78rem;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
@@ -343,10 +344,10 @@ var rows=[
 ['领先动能',leadTxt,'均线交叉在拐点附近容易反复，6 个月变化率更平滑；两者方向一致时置信度更高。'],
 ['普林格',pringTxt,'债券代理为 10Y 国债收益率并做反向处理，股票用上证指数，商品用 PPI；差异主要来自动量窗口与均线平滑。']];
 var h='<div class="cm-card full"><h3>同行口径对照与差异归因</h3><ul>';
-rows.forEach(function(r){h+='<li><span class="cm-k">'+r[0]+'</span>：'+r[1]+'<br><span style="color:var(--text-dim);font-size:0.74rem;">归因：'+r[2]+'</span></li>'});
-h+='<li style="color:var(--text-dim);font-size:0.74rem;">说明：以上"市场口径"是按业内常用算法在同一套数据上复算，不代表具体机构观点；不同机构在阈值、窗口和指标选择上仍有差异。</li></ul></div>';
+rows.forEach(function(r){h+='<li><span class="cm-k">'+r[0]+'</span>：'+r[1]+'<br><span style="color:var(--text-dim);font-size:0.8rem;">归因：'+r[2]+'</span></li>'});
+h+='<li style="color:var(--text-dim);font-size:0.8rem;">说明：以上"市场口径"是按业内常用算法在同一套数据上复算，不代表具体机构观点；不同机构在阈值、窗口和指标选择上仍有差异。</li></ul></div>';
 return h}
-function buildMarketViews(){var mv=window.__MARKET_VIEWS__;if(!mv||!mv.items||!mv.items.length)return '';var h='<div class="cm-card full"><h3>市场机构观点（人工整理 · 更新 '+(mv.updated||'')+'）</h3><ul>';mv.items.forEach(function(it){var cls=it.stance.indexOf('分歧')>=0?'diff':(it.stance.indexOf('部分')>=0?'part':'ok');h+='<li class="mv-item"><div class="mv-head"><span class="mv-org">'+it.org+'</span><span class="mv-date">'+it.date+'</span><span class="mv-topic">'+it.topic+'</span><span class="mv-stance '+cls+'">'+it.stance+'</span></div><div class="mv-view">「'+it.view+'」<a class="mv-link" href="'+it.link+'" target="_blank" rel="noopener">原文 ↗</a></div><div class="mv-note">对照：'+it.note+'</div></li>'});h+='<li style="color:var(--text-dim);font-size:0.74rem;">观点为人工摘录，可能与原文表述有出入，数据口径以原文为准；链接指向公开来源。</li></ul></div>';return h}
+function buildMarketViews(){var mv=window.__MARKET_VIEWS__;if(!mv||!mv.items||!mv.items.length)return '';var h='<div class="cm-card full"><h3>市场机构观点（人工整理 · 更新 '+(mv.updated||'')+'）</h3><ul>';mv.items.forEach(function(it){var cls=it.stance.indexOf('分歧')>=0?'diff':(it.stance.indexOf('部分')>=0?'part':'ok');h+='<li class="mv-item"><div class="mv-head"><span class="mv-org">'+it.org+'</span><span class="mv-date">'+it.date+'</span><span class="mv-topic">'+it.topic+'</span><span class="mv-stance '+cls+'">'+it.stance+'</span></div><div class="mv-view">「'+it.view+'」<a class="mv-link" href="'+it.link+'" target="_blank" rel="noopener">原文 ↗</a></div><div class="mv-note"><span class="k">对照</span>：'+it.note+'</div></li>'});h+='<li style="color:var(--text-dim);font-size:0.8rem;">观点为人工摘录，可能与原文表述有出入，数据口径以原文为准；链接指向公开来源。</li></ul></div>';return h}
 function buildNewsCard(){return '<div class="cm-card full"><h3>实时宏观快讯<button id="newsRefresh" class="mv-btn">刷新</button></h3><div id="newsList"><div class="mv-note">加载中…</div></div><div class="mv-note" style="margin-top:8px;">来源：东方财富全球快讯，按宏观关键词筛选，缓存 5 分钟；标题可点开原文。</div></div>'}
 function loadNews(force){var box=document.getElementById('newsList');if(!box)return;var btn=document.getElementById('newsRefresh');if(btn){btn.disabled=true;btn.textContent='刷新中…'}fetch('/api/news?limit=25'+(force?'&force=1':'')).then(function(r){return r.json()}).then(function(d){if(!d.ok){box.innerHTML='<div class="mv-note">快讯加载失败：'+(d.message||'')+'</div>';return}if(!d.items||!d.items.length){box.innerHTML='<div class="mv-note">暂无匹配的宏观快讯</div>';return}box.innerHTML=d.items.map(function(it){var t=(it.time||'').slice(5,16);var title=it.link?'<a href="'+it.link+'" target="_blank" rel="noopener">'+it.title+'</a>':it.title;return '<div class="news-item"><span class="news-time">'+t+'</span><span class="news-title">'+title+'</span></div>'}).join('')}).catch(function(e){box.innerHTML='<div class="mv-note">实时快讯需要本地服务：请通过 http://localhost:4321 打开，当前为'+(location.protocol==='file:'?'文件方式':'网络异常')+'。</div>'}).then(function(){if(btn){btn.disabled=false;btn.textContent='刷新'}})}
 var newsTimer=null;
