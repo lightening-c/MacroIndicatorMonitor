@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="assets/echarts.min.js"></script>
 <script src="assets/market_views.js?v=20261114b"></script>
+<script src="assets/mv_meta.js?v=20261114"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:18px}
@@ -173,6 +174,11 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .mv-view{font-size:0.86rem;line-height:1.75;color:var(--text)}
 .mv-note{font-size:0.9rem;line-height:1.8;color:#9fb0c2;margin-top:3px}
 .mv-note .k{color:var(--gold);font-weight:600}
+.mv-meta{font-size:0.86rem;line-height:1.85;color:#5b6b7f;margin-top:3px;border-left:2px solid var(--line);padding-left:8px}
+.mv-meta .k{color:var(--cyan);font-weight:600}
+.corr-item{margin-bottom:6px}
+.corr-date{color:var(--text-dim);font-size:0.8rem;margin-right:8px}
+.corr-fix{color:var(--green)}
 .cm-reason{font-size:0.92rem;line-height:1.8;color:#9fb0c2}
 .cm-reason .k{color:var(--gold);font-weight:600}
 .cm-card li.cm-foot{font-size:0.92rem;line-height:1.7;color:#8fa0b2}
@@ -358,7 +364,7 @@ if(m1&&sh&&m1.latest_value!=null&&sh.latest_value!=null&&sh.latest_value<2&&m1.l
 if(!risks.length)risks.push('暂无显著风险信号');
 cards.push('<div class="cm-card warn"><h3>风险与背离</h3><ul>'+risks.map(function(r){return '<li>'+r+'</li>'}).join('')+'</ul></div>');
 cards.push('<div class="cm-note">以上文字由当前数据自动生成，仅供研究参考，不构成投资建议。</div>');
-el.innerHTML=cards.join('')+buildPeerCompare(D)+buildMarketViews()+buildNewsCard()}
+el.innerHTML=cards.join('')+buildPeerCompare(D)+buildMarketViews()+buildCorrections()+buildNewsCard()}
 function buildPeerCompare(D){var acc=D.accounting||{},ML=D.merrill_lynch||{},PR=D.pring||{},L=acc.latest||{},S=D.summary||{};
 function find(id){var r=null;['leading','coincident','lagging'].forEach(function(c){(D.indicators[c]||[]).forEach(function(i){if(i.id===id)r=i})});return r}
 function sMap(id){var ind=find(id);var m={};if(ind&&ind.ts_data){ind.ts_data.forEach(function(p){if(p.value!=null)m[p.date.slice(0,7)]=p.value})}return m}
@@ -395,7 +401,8 @@ var h='<div class="cm-card full"><h3>同行口径对照与差异归因</h3><ul>'
 rows.forEach(function(r){h+='<li><span class="cm-k">'+r[0]+'</span>：'+r[1]+'<br><span class="cm-reason"><span class="k">归因</span>：'+r[2]+'</span></li>'});
 h+='<li class="cm-foot">说明：以上"市场口径"是按业内常用算法在同一套数据上复算，不代表具体机构观点；不同机构在阈值、窗口和指标选择上仍有差异。</li></ul></div>';
 return h}
-function buildMarketViews(){var mv=window.__MARKET_VIEWS__;if(!mv||!mv.items||!mv.items.length)return '';var h='<div class="cm-card full"><h3>市场机构观点（人工整理 · 更新 '+(mv.updated||'')+'）</h3><ul>';mv.items.forEach(function(it){var cls=it.stance.indexOf('分歧')>=0?'diff':(it.stance.indexOf('部分')>=0?'part':'ok');h+='<li class="mv-item"><div class="mv-head"><span class="mv-org">'+it.org+'</span><span class="mv-date">'+it.date+'</span><span class="mv-topic">'+it.topic+'</span><span class="mv-stance '+cls+'">'+it.stance+'</span></div><div class="mv-view">「'+it.view+'」<a class="mv-link" href="'+it.link+'" target="_blank" rel="noopener">原文 ↗</a></div><div class="mv-note"><span class="k">对照</span>：'+it.note+'</div></li>'});h+='<li class="cm-foot">观点为人工摘录，可能与原文表述有出入，数据口径以原文为准；链接指向公开来源。</li></ul></div>';return h}
+function buildMarketViews(){var mv=window.__MARKET_VIEWS__;if(!mv||!mv.items||!mv.items.length)return '';var h='<div class="cm-card full"><h3>市场机构观点（人工整理 · 更新 '+(mv.updated||'')+'）</h3><ul>';mv.items.forEach(function(it){var cls=it.stance.indexOf('分歧')>=0?'diff':(it.stance.indexOf('部分')>=0?'part':'ok');var meta=(window.__MV_META__||{})[it.org+'|'+it.date+'|'+it.topic]||null;h+='<li class="mv-item"><div class="mv-head"><span class="mv-org">'+it.org+'</span><span class="mv-date">'+it.date+'</span><span class="mv-topic">'+it.topic+'</span><span class="mv-stance '+cls+'">'+it.stance+'</span></div><div class="mv-view">「'+it.view+'」<a class="mv-link" href="'+it.link+'" target="_blank" rel="noopener">原文 ↗</a></div><div class="mv-note"><span class="k">对照</span>：'+it.note+'</div>'+(meta?'<div class="mv-meta"><span class="k">归因</span>：'+meta.cause+'　<span class="k">处理</span>：'+meta.action+'</div>':'')+'</li>'});h+='<li class="cm-foot">观点为人工摘录，可能与原文表述有出入，数据口径以原文为准；链接指向公开来源。</li></ul></div>';return h}
+function buildCorrections(){var list=window.__CORRECTIONS__||[];if(!list.length)return '';var h='<div class="cm-card full"><h3>模型修正记录</h3><ul>';list.forEach(function(c){h+='<li class="corr-item"><span class="corr-date">'+c.date+'</span><b>'+c.item+'</b>：'+c.issue+'；<span class="corr-fix">修正：'+c.fix+'</span></li>'});h+='<li class="cm-foot" style="display:block;">修正记录包含由「机构观点对照—归因」触发与自查发现的问题，均已修复并备注。</li></ul></div>';return h}
 function buildNewsCard(){return '<div class="cm-card full"><h3>实时宏观快讯<button id="newsRefresh" class="mv-btn">刷新</button></h3><div id="newsList"><div class="mv-note">加载中…</div></div><div class="mv-note" style="margin-top:8px;">来源：东方财富全球快讯，按宏观关键词筛选，缓存 5 分钟；标题可点开原文。</div></div>'}
 function loadNews(force){var box=document.getElementById('newsList');if(!box)return;var btn=document.getElementById('newsRefresh');if(btn){btn.disabled=true;btn.textContent='刷新中…'}fetch('/api/news?limit=25'+(force?'&force=1':'')).then(function(r){return r.json()}).then(function(d){if(!d.ok){box.innerHTML='<div class="mv-note">快讯加载失败：'+(d.message||'')+'</div>';return}if(!d.items||!d.items.length){box.innerHTML='<div class="mv-note">暂无匹配的宏观快讯</div>';return}box.innerHTML=d.items.map(function(it){var t=(it.time||'').slice(5,16);var title=it.link?'<a href="'+it.link+'" target="_blank" rel="noopener">'+it.title+'</a>':it.title;return '<div class="news-item"><span class="news-time">'+t+'</span><span class="news-title">'+title+'</span></div>'}).join('')}).catch(function(e){box.innerHTML='<div class="mv-note">实时快讯需要本地服务：请通过 http://localhost:4321 打开，当前为'+(location.protocol==='file:'?'文件方式':'网络异常')+'。</div>'}).then(function(){if(btn){btn.disabled=false;btn.textContent='刷新'}})}
 var newsTimer=null;
