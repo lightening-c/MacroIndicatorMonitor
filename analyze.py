@@ -20,6 +20,14 @@ ANALYSIS_OUTPUT = os.path.join(DATA_DIR, "analysis_result.json")
 NEGATIVE_INDICATORS = {"cpi", "ppi", "unemployment", "lpr",
                        "reserve_ratio", "rmb_rate", "shibor_overnight", "bond_yield_10y"}
 
+# 已知源端长期不更新/派生链中断的指标，用于向页面解释「未更新理由」。
+# {latest} 会被替换成该指标的最新数据日期。
+STALE_SOURCE_NOTES = {
+    "tsf_rolling_yoy": "派生指标（社融滚动 12 个月汇总），自 {latest} 后未再产出新值，需检查派生计算链",
+    "real_estate_dev": "国家统计局自 {latest} 后未再发布国房景气指数",
+    "margin_sh": "上交所融资余额公布滞后，源端最新仅到 {latest}",
+}
+
 # ---------------------------------------------------------------------------
 # Legacy column hints: used as fallback / override for auto-detection
 # Format: {ind_id: {"date_col": "...", "val_col": "..."}}
@@ -1021,6 +1029,7 @@ def run_analysis():
                 "latest_date": ts_data[-1]["date"] if ts_data else None,
                 "data_age_days": data_age_days,
                 "stale": is_stale,
+                "stale_limit": stale_limit,
                 "mom_change": trend["mom_change"],
                 "yoy_change": trend["yoy_change"],
                 "direction": trend["direction"],
@@ -1152,13 +1161,26 @@ def run_analysis():
         results["accounting"] = {"available": False}
 
     # === Data Health（陈旧与采集失败）===
+    def stale_reason(e):
+        note = STALE_SOURCE_NOTES.get(e["id"])
+        if note:
+            return note.format(latest=e["latest_date"])
+        age, limit = e["data_age_days"] or 0, e.get("stale_limit") or 0
+        freq = e.get("frequency", "")
+        if limit and age > limit * 2:
+            return f"{freq}指标已超阈值 {age - limit} 天未更新，疑似源端停更或采集口径变化"
+        return f"{freq}数据发布滞后，上游尚未公布下一期"
+
     stale_items = []
     for cat in ["leading", "coincident", "lagging"]:
         for e in results["indicators"].get(cat, []):
             if e.get("stale"):
                 stale_items.append({"id": e["id"], "name": e["name"], "category": cat,
+                                    "freq": e.get("frequency", ""),
                                     "latest_date": e["latest_date"],
-                                    "age_days": e["data_age_days"]})
+                                    "age_days": e["data_age_days"],
+                                    "stale_limit": e.get("stale_limit"),
+                                    "reason": stale_reason(e)})
     failed_items = []
     meta_path = os.path.join(DATA_DIR, "meta.yaml")
     if os.path.exists(meta_path):

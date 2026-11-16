@@ -268,13 +268,38 @@ html.light .ind-card .ind-name,html.light .cm-card b,html.light .mv-org{color:#1
 html.light .kpi-tile:hover{box-shadow:0 8px 24px rgba(15,23,42,0.10)}
 html.light .footer{color:#64748b}
 html.light.swap-colors{--green:#d92d20;--red:#0f8a4d;--green-bg:rgba(217,45,32,0.12);--red-bg:rgba(15,138,77,0.12)}
+.doc-mask{position:fixed;inset:0;z-index:9998;background:rgba(3,8,15,0.66);display:none;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(3px)}
+.doc-mask.open{display:flex}
+.doc-panel{width:min(900px,100%);max-height:84vh;overflow:auto;background:#0d1117;border:1px solid var(--line);border-radius:14px;padding:22px 26px;color:var(--text);font-size:0.82rem;line-height:1.8;box-shadow:0 28px 70px rgba(0,0,0,0.5)}
+html.light .doc-panel{background:#ffffff;color:#1f2937;box-shadow:0 28px 70px rgba(15,23,42,0.2)}
+.doc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.doc-head h3{font-size:1rem;color:var(--cyan);font-weight:600;letter-spacing:0.03em}
+.doc-close{background:none;border:none;color:var(--text-dim);font-size:1.4rem;cursor:pointer;line-height:1;padding:0 4px;font-family:inherit}
+.doc-close:hover{color:var(--cyan)}
+.doc-meta{color:var(--text-dim);font-size:0.76rem;margin-bottom:14px}
+.doc-sec{margin-top:16px}
+.doc-sec>b{display:block;font-size:0.84rem;margin-bottom:6px}
+.doc-list{margin:0;padding-left:18px;color:var(--text-dim)}
+.doc-list li{margin:3px 0}
+.doc-table{width:100%;border-collapse:collapse;font-size:0.76rem;margin-top:4px}
+.doc-table-wrap{overflow-x:auto}
+.doc-table th{text-align:left;font-weight:600;color:var(--text-dim);padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.doc-table td{padding:6px 8px;border-bottom:1px solid var(--line-faint);vertical-align:top}
+.doc-table th:first-child,.doc-table td:first-child{min-width:7.5em}
+.doc-table th:nth-child(2),.doc-table td:nth-child(2),
+.doc-table th:nth-child(3),.doc-table td:nth-child(3),
+.doc-table th:nth-child(4),.doc-table td:nth-child(4){white-space:nowrap;padding-right:14px}
+.doc-table td:last-child{min-width:13em}
+.doc-table td:last-child{color:var(--text-dim);line-height:1.6}
+.doc-table tr:hover td{background:var(--line-faint)}
+.doc-ok{color:var(--green)}
 </style>
 </head>
 <body>
 <canvas id="particleCanvas"></canvas>
 <div class="scanlines"></div>
 <div class="app-container">
-<header class="header"><div class="header-left"><h1>宏观经济指标</h1><div class="subtitle">中国宏观经济监测系统 · 领先/同步/滞后指标分析</div></div><div class="header-right"><div id="liveClock"></div><div class="cycle-badge" id="cycleBadge">--</div><div class="health-badge" id="healthBadge" title="">--</div><button id="syncBtn" class="sync-btn" onclick="triggerUpdate()">同步更新</button><a href="cycle_report.html" class="report-link">周期报告</a></div></header>
+<header class="header"><div class="header-left"><h1>宏观经济指标</h1><div class="subtitle">中国宏观经济监测系统 · 领先/同步/滞后指标分析</div></div><div class="header-right"><div id="liveClock"></div><div class="cycle-badge" id="cycleBadge">--</div><div class="health-badge" id="healthBadge" title="">--</div><button id="syncBtn" class="sync-btn" onclick="triggerUpdate()">同步更新</button><button id="docBtn" class="sync-btn" onclick="openDoc()" title="数据更新说明与未更新理由">数据说明</button><a href="cycle_report.html" class="report-link">周期报告</a></div></header>
 <div class="kpi-row" id="kpiRow"></div>
 <div class="section-title">宏观经济指标</div>
 <div class="toolbar"><input id="indSearch" class="search-input" type="search" placeholder="搜索指标名称…"><button class="filter-chip active" data-filter="all">全部</button><button class="filter-chip" data-filter="leading">领先</button><button class="filter-chip" data-filter="coincident">同步</button><button class="filter-chip" data-filter="lagging">滞后</button><button class="filter-chip" data-filter="stale">仅看陈旧</button><select id="caliberFilter" class="range-select" style="margin:0"><option value="">全部口径</option><option>生产法</option><option>支出法</option><option>收入法</option><option>价格金融</option><option>景气预期</option></select><select id="groupMode" class="range-select" style="margin:0" title="切换指标矩阵的分组方式"><option value="cycle">按周期分组</option><option value="caliber">按核算分组</option></select><button id="colorSwapBtn" class="filter-chip" title="切换改善色：绿=改善 / 红=改善">绿=改善</button><div class="toolbar-legend"><span class="lg" style="background:var(--green)"></span>改善<span class="lg" style="background:var(--red)"></span>恶化<span class="lg" style="background:#ff9800"></span>数据陈旧</div></div>
@@ -448,13 +473,47 @@ var sigTxt={up:'看多',down:'看空',stable:'中性'};
 var rowsHtml=[['债券',pr.bond_indicator,pr.bond_proxy_value,pringChange(D,pr.bond_proxy_id,true),pr.bond_signal],['股票',pr.stock_indicator,pr.stock_proxy_value,pringChange(D,pr.stock_proxy_id,false),pr.stock_signal],['商品',pr.commodity_indicator,pr.commodity_proxy_value,pringChange(D,pr.commodity_proxy_id,false),pr.commodity_signal]].map(function(r){return '<tr><td>'+r[0]+'</td><td>'+(r[1]||'--')+'</td><td>'+(r[2]==null?'--':fmtNum(r[2],2))+'</td><td>'+(r[3]==null?'--':(r[3]>0?'+':'')+fmtNum(r[3],2))+'</td><td>'+(sigTxt[r[4]]||'--')+'</td></tr>'}).join('');
 document.getElementById('pringBench').innerHTML='<table class="bench-table" style="margin-top:10px;"><tr><th>市场</th><th>代理指标</th><th>最新值</th><th>6个月动量</th><th>信号</th></tr>'+rowsHtml+'</table><div class="mv-note" style="margin-top:8px;">普林格按债券→股票→商品依次轮动；债券收益率为反向指标，动量按收益率下行计为正。当前三市场信号：'+(pr.description||'')+'。</div>'}
 function buildCycleCards(D){var ml=D.merrill_lynch||{};var mh='<h3 style="color:'+okColor()+';">美林时钟 Merrill Lynch Clock</h3>';mh+='<div class="ml-info"><span>象限：</span><span class="ml-quadrant">'+(ml.quadrant||'--')+'</span></div>';mh+='<div class="ml-info"><span>增长 X：</span>'+fmtNum(ml.x,3)+' · <span>通胀 Y：</span>'+fmtNum(ml.y,3)+'</div>';mh+='<div class="ml-allocation">'+(ml.advice||'--')+'</div>';mh+='<div class="ml-info" style="margin-top:10px;"><span>资产配置：</span>'+(ml.asset_allocation||'--')+'</div>';mh+='<div class="expand-hint"><span>点击展开：象限轨迹、分项基准与得分</span><span class="chev">▾</span></div><div class="cycle-detail"><div class="ml-quad-wrap" id="mlQuadChart"></div><div id="mlBench"></div></div>';document.getElementById('merrillCard').innerHTML=mh;var pr=D.pring||{};var ph='<h3 style="color:#00d4ff;">普林格周期 Pring Cycle</h3>';ph+='<div class="ml-info"><span>阶段：</span><strong>'+(pr.stage||'--')+'</strong></div>';ph+='<div class="ml-info" style="font-size:0.75rem;color:#8899aa;">'+(pr.description||'')+'</div>';ph+='<div class="pring-signals">';function ps(l,s,i,v){var sc2=s||'stable';var ar=sc2==='up'?'▲':sc2==='down'?'▼':'→';var tx=sc2==='up'?'看多':sc2==='down'?'看空':'中性';return'<div class="pring-sig"><div class="sig-label">'+l+' ('+(i||'')+')</div><div class="sig-val">'+fmtNum(v,2)+'</div><div class="sig-arrow '+sc2+'">'+ar+' '+tx+'</div></div>'}ph+=ps('债券',pr.bond_signal,pr.bond_indicator,pr.bond_proxy_value);ph+=ps('股票',pr.stock_signal,pr.stock_indicator,pr.stock_proxy_value);ph+=ps('商品',pr.commodity_signal,pr.commodity_indicator,pr.commodity_proxy_value);ph+='</div>';ph+='<div class="expand-hint"><span>点击展开：六阶段位置与三市场动量</span><span class="chev">▾</span></div><div class="cycle-detail"><div class="pring-wrap" id="pringDetailChart"></div><div id="pringLadder"></div><div id="pringBench"></div></div>';document.getElementById('pringCard').innerHTML=ph;var cp=D.cycle_phase||{};var s=D.summary||{};var dh='<h3 style="color:#ff006e;">一致性诊断 Diagnosis</h3>';dh+='<div class="ml-info"><span>周期阶段：</span><strong>'+(cp.phase||'--')+'</strong></div>';dh+='<div class="ml-info" style="font-size:0.75rem;color:#8899aa;margin-bottom:8px;">'+(cp.description||'')+'</div>';dh+='<div class="diag-row"><span class="diag-label">领先指标方向</span><span class="diag-val '+(cp.leading_majority||'')+'">'+dirLabel(cp.leading_majority)+'</span></div>';dh+='<div class="diag-row"><span class="diag-label">同步指标方向</span><span class="diag-val '+(cp.coincident_majority||'')+'">'+dirLabel(cp.coincident_majority)+'</span></div>';dh+='<div class="diag-row"><span class="diag-label">滞后指标方向</span><span class="diag-val '+(cp.lagging_majority||'')+'">'+dirLabel(cp.lagging_majority)+'</span></div>';dh+='<div class="summary-stats">';dh+='<span class="stat-chip good">领先改善 '+(s.leading_improving||0)+'</span>';dh+='<span class="stat-chip bad">领先恶化 '+(s.leading_deteriorating||0)+'</span>';dh+='<span class="stat-chip good">同步改善 '+(s.coincident_improving||0)+'</span>';dh+='<span class="stat-chip bad">同步恶化 '+(s.coincident_deteriorating||0)+'</span>';dh+='</div>';document.getElementById('diagCard').innerHTML=dh;bindCycleExpand(D)}
-function initApp(D){document.getElementById('updateTime').textContent=D.update_time||'--';var cycleBadge=document.getElementById('cycleBadge');cycleBadge.style.display='none';var H=D.data_health||{};var hb=document.getElementById('healthBadge');if(hb){if(H.stale_count){hb.className='health-badge warn';hb.textContent='数据陈旧 '+H.stale_count+' 项';hb.title=(H.stale||[]).map(function(x){return x.name+' · 最新 '+x.latest_date+'（'+x.age_days+' 天前）'}).join('\n')}else{hb.className='health-badge';hb.textContent='数据完整';hb.title=''}};function tick(){var now=new Date();document.getElementById('liveClock').textContent=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0')}tick();setInterval(tick,1000);buildKpiRow(D);buildIndicatorGrid(D);initToolbar();initGroupMode();initColorSwap();initFileBanner();buildTrendTab(D);buildAccounting(D);buildCommentary(D);initNews();buildHeatmap(D);buildComposite(D);buildDecomp(D);buildCycleCards(D);document.querySelectorAll('.tab-btn').forEach(function(btn){btn.addEventListener('click',function(){var tabId=this.getAttribute('data-tab');document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});this.classList.add('active');document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active')});document.getElementById(tabId).classList.add('active');setTimeout(function(){resizeAll()},150)})});window.addEventListener('resize',function(){resizeAll()})}
+function initApp(D){document.getElementById('updateTime').textContent=D.update_time||'--';var cycleBadge=document.getElementById('cycleBadge');cycleBadge.style.display='none';var H=D.data_health||{};var hb=document.getElementById('healthBadge');if(hb){if(H.stale_count){hb.className='health-badge warn';hb.textContent='数据陈旧 '+H.stale_count+' 项';hb.title=(H.stale||[]).map(function(x){return x.name+' · 最新 '+x.latest_date+'（'+x.age_days+' 天前）'}).join('\n')}else{hb.className='health-badge';hb.textContent='数据完整';hb.title=''}}hb.style.cursor='pointer';hb.onclick=openDoc;function tick(){var now=new Date();document.getElementById('liveClock').textContent=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0')}tick();setInterval(tick,1000);buildKpiRow(D);buildIndicatorGrid(D);initToolbar();initGroupMode();initColorSwap();initFileBanner();buildTrendTab(D);buildAccounting(D);buildCommentary(D);initNews();buildHeatmap(D);buildComposite(D);buildDecomp(D);buildCycleCards(D);document.querySelectorAll('.tab-btn').forEach(function(btn){btn.addEventListener('click',function(){var tabId=this.getAttribute('data-tab');document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});this.classList.add('active');document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active')});document.getElementById(tabId).classList.add('active');setTimeout(function(){resizeAll()},150)})});window.addEventListener('resize',function(){resizeAll()});buildDoc(D)}
 function toggleTheme(){var light=document.documentElement.classList.contains('light');try{localStorage.setItem('dashboardTheme',light?'dark':'light')}catch(e){}location.reload()}
 function initTheme(){var b=document.getElementById('themeBtn');if(!b)return;b.textContent=isLight()?'深色模式':'浅色模式'}
 var SERVER_ORIGIN='http://localhost:4321';
 function probeServer(cb){var fin=false;function done(v){if(fin)return;fin=true;cb(v)}try{var ac=new AbortController();setTimeout(function(){ac.abort()},2000);fetch(SERVER_ORIGIN+'/api/status',{mode:'no-cors',cache:'no-store',signal:ac.signal}).then(function(){done(true)},function(){done(false)})}catch(e){done(false)}}
 function maybeAutoSync(){if(!/[?&]sync=1(&|$)/.test(location.search))return;if(location.protocol==='file:')return;try{history.replaceState(null,'',location.pathname)}catch(e){}triggerUpdate()}
 window.triggerUpdate=function(){var b=document.getElementById('syncBtn');if(!b)return;if(location.protocol==='file:'){b.disabled=true;b.textContent='查找服务...';probeServer(function(ok){if(ok){location.replace(SERVER_ORIGIN+'/dashboard.html?sync=1');return}b.disabled=false;b.textContent='需启动服务';setTimeout(function(){b.textContent='同步更新'},3000)});return;}b.disabled=true;b.textContent='更新中...';b.classList.add('updating');fetch('/api/update',{method:'POST'}).then(function(r){return r.json()}).then(function(d){if(d.ok){b.textContent='已启动';setTimeout(function(){b.textContent='同步更新';b.classList.remove('updating');b.disabled=false;pollUpdateStatus()},2000)}else{b.textContent=d.message||'失败';b.classList.remove('updating');b.disabled=false}}).catch(function(e){b.textContent='连接失败';b.classList.remove('updating');b.disabled=false})};
+function escHtml(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+var CAT_CN={leading:'领先',coincident:'同步',lagging:'滞后'};
+function buildDoc(D){
+  var H=D.data_health||{},stale=H.stale||[],failed=H.failed_items||[];
+  var h='<div class="doc-head"><h3>数据更新说明</h3><button class="doc-close" onclick="closeDoc()" aria-label="关闭">×</button></div>';
+  h+='<div class="doc-meta">最近更新 '+escHtml(D.update_time||'--')+' · 指标 '+(H.total||0)+' 个 · 陈旧 '+stale.length+' 项'+(failed.length?' · 采集失败 '+failed.length+' 项':'')+'</div>';
+  h+='<div class="doc-sec"><b>更新流程</b><ul class="doc-list"><li>点「同步更新」依次运行：采集数据 → 分析引擎 → 数据自检，全部通过后页面自动刷新。</li><li>数据来自 akshare 封装的统计局、交易所等公开源；源端未发布新一期时，该指标只能停留在上一期。</li></ul></div>';
+  h+='<div class="doc-sec"><b>陈旧判定</b><ul class="doc-list"><li>按频率设阈值：每日 10 天、月度 75 天、季度 150 天，最新数据超过阈值即标为陈旧。</li><li>陈旧指标保留明细与相关系数，但不参与合成指数和信号汇总，避免旧数据扭曲判断。</li><li>月度阈值卡在发布空窗期，每月月中有若干指标会短暂被判为陈旧，等下月数据发布后自动恢复。</li></ul></div>';
+  if(stale.length){
+    h+='<div class="doc-sec"><b>未更新理由（'+stale.length+' 项）</b><div class="doc-table-wrap"><table class="doc-table"><tr><th>指标</th><th>分类</th><th>最新数据</th><th>距今 / 阈值</th><th>理由</th></tr>';
+    stale.forEach(function(x){
+      h+='<tr><td>'+escHtml(x.name)+'</td><td>'+(CAT_CN[x.category]||escHtml(x.category))+' · '+escHtml(x.freq||'')+'</td><td>'+escHtml(x.latest_date||'')+'</td><td>'+(x.age_days==null?'--':x.age_days+' 天')+(x.stale_limit?' / '+x.stale_limit+' 天':'')+'</td><td>'+escHtml(x.reason||'上游数据源未更新')+'</td></tr>';
+    });
+    h+='</table></div></div>';
+  }else{
+    h+='<div class="doc-sec"><b>未更新理由</b><div class="doc-ok">全部指标均在阈值内，暂无陈旧数据。</div></div>';
+  }
+  if(failed.length){
+    h+='<div class="doc-sec"><b>采集失败（'+failed.length+' 项）</b><ul class="doc-list">';
+    failed.forEach(function(x){h+='<li>'+escHtml(typeof x==='string'?x:(x.name||x.id||'未知'))+'</li>'});
+    h+='</ul></div>';
+  }
+  var m=document.getElementById('docMask');
+  if(!m){
+    m=document.createElement('div');m.id='docMask';m.className='doc-mask';
+    m.onclick=function(e){if(e.target===m)closeDoc()};
+    m.innerHTML='<div class="doc-panel" id="docPanel"></div>';
+    document.body.appendChild(m);
+    document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDoc()});
+  }
+  document.getElementById('docPanel').innerHTML=h;
+}
+function openDoc(){var m=document.getElementById('docMask');if(m)m.classList.add('open')}
+function closeDoc(){var m=document.getElementById('docMask');if(m)m.classList.remove('open')}
 function pollUpdateStatus(){var b=document.getElementById('syncBtn');var iv=setInterval(function(){fetch('/api/status').then(function(r){return r.json()}).then(function(s){if(s.running){if(s.current_step)b.textContent='更新中 '+s.current_step;return}clearInterval(iv);b.textContent='同步更新';b.disabled=false;b.classList.remove('updating');if(s.last_result&&s.last_result.success){b.textContent='已更新';setTimeout(function(){b.textContent='同步更新'},3000);location.reload()}else{b.textContent='更新失败';setTimeout(function(){b.textContent='同步更新'},3000)}})},3000);setTimeout(function(){clearInterval(iv);b.textContent='同步更新';b.disabled=false;b.classList.remove('updating')},120000)}
 (function(){function showHint(){document.body.insertAdjacentHTML('afterbegin','<div style="position:fixed;inset:0;z-index:99999;background:#f4f6fa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#1f2937;font-family:system-ui,sans-serif;text-align:center;padding:24px;"><h2 style="color:#0b7fab;">未找到数据文件</h2><p style="color:#5b6b7f;max-width:480px;line-height:1.8;">请先采集一次数据：双击项目目录下的 <b>start.bat</b> 启动服务，访问 http://localhost:4321 并点击"同步更新"。</p></div>')}var s=document.createElement('script');s.src='data/analysis_data.js?v='+Date.now();s.onload=function(){if(window.__ANALYSIS_DATA__){initApp(window.__ANALYSIS_DATA__);maybeAutoSync()}else{showHint()}};s.onerror=showHint;document.head.appendChild(s)})();
 </script>
