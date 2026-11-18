@@ -80,6 +80,13 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .cal-fit-2 .cal-nav{font-size:0.95rem}
 .cal-fit-2 .cal-btn{font-size:0.9rem;padding:1px 8px}
 .cal-fit-2 .cal-detail{font-size:0.74rem;padding:5px 9px}
+.cal-fit-3 .cal-cell{min-height:52px}
+.cal-fit-3 .cal-date{font-size:1.1rem;min-width:24px;height:24px}
+.cal-fit-3 .cal-ev{font-size:0.78rem;margin-top:1px;padding:1px 4px}
+.cal-fit-3 .cal-dow{font-size:1rem}
+.cal-fit-3 .cal-nav{font-size:0.8rem}
+.cal-fit-3 .cal-btn{font-size:0.76rem;padding:1px 6px}
+.cal-fit-3 .cal-detail{font-size:0.7rem;padding:4px 8px;margin-top:4px}
 @media(max-width:768px){.cal-cell{min-height:64px}.cal-date{min-width:28px;height:28px;font-size:1.3rem}.cal-ev{display:none}.cal-cell.has:after{content:'';position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:7px;height:7px;border-radius:50%;background:#fbbf24}.cal-tip{display:none!important}}
 .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin:20px 0}
 @media(max-width:1200px){.kpi-row{grid-template-columns:repeat(3,1fr)}}
@@ -421,7 +428,7 @@ if(f.indexOf('季度')>=0){if([0,3,6,9].indexOf(m)>=0){d=new Date(y,m,18);pl='�
 else{var lag=LAG[ind.id];if(lag===undefined)lag=15;if(lag===-1){d=new Date(y,m+1,0);pl='当月数据'}else{d=new Date(y,m,lag);pl='上月数据'}}
 if(!d)return;var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');(ev[key]=ev[key]||[]).push({id:ind.id,name:ind.name,period:pl,core:!!core[ind.id],src:ind.source||'--',freq:ind.frequency||'--'})})});
 Object.keys(ev).forEach(function(k){ev[k].sort(function(a,b){return (b.core?1:0)-(a.core?1:0)})});return ev}
-function fitCalendar(){var el=document.getElementById('releaseCalendar');if(!el)return;el.classList.remove('cal-fit-1','cal-fit-2');var vh=window.innerHeight;if(el.getBoundingClientRect().bottom>vh-8){el.classList.add('cal-fit-1');if(el.getBoundingClientRect().bottom>vh-8){el.classList.add('cal-fit-2')}}}
+function fitCalendar(){var el=document.getElementById('releaseCalendar');if(!el)return;el.classList.remove('cal-fit-1','cal-fit-2','cal-fit-3');el.style.maxHeight='';el.style.overflowY='';var vh=window.innerHeight;var steps=['cal-fit-1','cal-fit-2','cal-fit-3'];for(var i=0;i<steps.length;i++){if(el.getBoundingClientRect().bottom>vh-8){el.classList.add(steps[i])}else{break}}if(el.getBoundingClientRect().bottom>vh-8){var top=el.getBoundingClientRect().top;el.style.maxHeight=Math.max(260,vh-top-12)+'px';el.style.overflowY='auto'}}
 function buildReleaseCalendar(D){var el=document.getElementById('releaseCalendar');if(!el)return;var now=new Date();if(!CAL_STATE.y){CAL_STATE.y=now.getFullYear();CAL_STATE.m=now.getMonth()}
 function render(){var y=CAL_STATE.y,m=CAL_STATE.m;var ev=buildReleaseEvents(D,y,m);var first=new Date(y,m,1);var startIdx=(first.getDay()+6)%7;var days=new Date(y,m+1,0).getDate();var todayStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
 var html='<div class="cal-head"><div class="cal-title">数据发布日历</div><div class="cal-nav"><button class="cal-btn" id="calPrev">‹</button><span>'+y+' 年 '+(m+1)+' 月</span><button class="cal-btn" id="calNext">›</button><button class="cal-btn" id="calToday">本月</button></div><div class="cal-legend"><span><i class="cal-dot" style="background:#b45309"></i>核心数据</span><span><i class="cal-dot" style="background:#0b7fab"></i>其他数据</span></div></div><div class="cal-grid">'+['一','二','三','四','五','六','日'].map(function(w){return '<div class="cal-dow">'+w+'</div>'}).join('');
