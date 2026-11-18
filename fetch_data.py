@@ -668,6 +668,39 @@ def create_fetch_function(indicator):
             return None
         return _fetch
 
+    # ── 模式 19：PPI-CPI 剪刀差（由已有 CPI/PPI 文件派生）────
+    if func_name == "derived_ppi_cpi_gap":
+        def _fetch():
+            try:
+                cpi_path = os.path.join(DATA_DIR, "cpi.csv")
+                ppi_path = os.path.join(DATA_DIR, "ppi.csv")
+                if not (os.path.exists(cpi_path) and os.path.exists(ppi_path)):
+                    print(f"  [WARN] 缺少 cpi.csv 或 ppi.csv，无法派生剪刀差")
+                    return None
+                c = pd.read_csv(cpi_path, encoding="utf-8-sig")
+                p2 = pd.read_csv(ppi_path, encoding="utf-8-sig")
+                def to_ym(series):
+                    t = series.astype(str).str.extract(r"(\d{4})年(\d{1,2})月")
+                    return t[0] + "-" + t[1].str.zfill(2)
+                c["ym"] = to_ym(c["月份"])
+                p2["ym"] = to_ym(p2["月份"])
+                c["cpi"] = pd.to_numeric(c["全国-同比增长"], errors="coerce")
+                p2["ppi"] = pd.to_numeric(p2["当月同比增长"], errors="coerce")
+                m = c[["ym", "cpi"]].merge(p2[["ym", "ppi"]], on="ym", how="inner").dropna()
+                if m.empty:
+                    print(f"  [WARN] CPI 与 PPI 无共同月份")
+                    return None
+                m["gap"] = (m["ppi"] - m["cpi"]).round(2)
+                out = pd.DataFrame({"日期": (m["ym"] + "-01").values, ind_name: m["gap"].values})
+                out = out.sort_values("日期").drop_duplicates("日期", keep="last")
+                print(f"  [INFO] {ind_name} 共 {len(out)} 条（{out.iloc[0,0]} ~ {out.iloc[-1,0]}）")
+                return out
+            except Exception as e:
+                print(f"  [ERR] {ind_name} 派生失败: {e}")
+                traceback.print_exc()
+            return None
+        return _fetch
+
     # ── 模式 7：有列名映射的通用函数 ──────────────────────────
     if date_col_spec and val_col_spec:
 

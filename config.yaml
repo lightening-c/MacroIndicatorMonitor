@@ -243,6 +243,14 @@ indicators:
       description: 工业品出厂价格滞后于供需变化
       akshare_func: macro_china_ppi
 
+    - id: ppi_cpi_gap
+      name: PPI-CPI剪刀差
+      unit: pp
+      source: 国家统计局
+      frequency: 月度
+      description: PPI同比减CPI同比, 衡量上下游利润分配与中下游成本压力
+      akshare_func: derived_ppi_cpi_gap
+
     - id: unemployment
       name: 城镇调查失业率
       unit: "%"
@@ -386,6 +394,7 @@ calibers:
   sh_index: 价格金融
   cpi: 价格金融
   ppi: 价格金融
+  ppi_cpi_gap: 价格金融
 
 # 核算视角勾稽分组（生产法与支出法对照）
 accounting:

@@ -12,6 +12,21 @@ window.__IND_VIEWS__ = {
         link: "https://stcn.com/article/detail/4333001.html" }
     ]
   },
+  ppi_cpi_gap: {
+    benchmark: "市场口径为 PPI 同比减 CPI 同比：正值=上游价格强于下游、利润向上游集中；负值=中下游成本压力缓解、利润向下游转移。通常看方向与绝对水平，不单看正负。",
+    impact: "剪刀差扩大利好上游资源与周期品，挤压中下游制造与消费；收窄则相反。与库存周期、工业企业利润配合判断利润分配与通胀传导。",
+    watch: "下月 PPI 与 CPI 同比、剪刀差方向；PPI 见顶往往对应剪刀差收敛",
+    views: [
+      { org: "申万宏源（赵伟）", date: "2026-11-10", stance: "时点差",
+        view: "供给侧关注 PPI-CPI 剪刀差收敛。",
+        note: "面板剪刀差 5.0pp 且单月扩大 0.9pp，收敛尚未出现，属于预期与现实的时点差。",
+        link: "https://stcn.com/article/detail/4333001.html" },
+      { org: "国金证券（尹睿哲）", date: "2026年", stance: "部分一致",
+        view: "PPI 自 2025 年 7 月筑底向上，历史看领先库存低点 5-6 个月。",
+        note: "PPI 上行会推高剪刀差，与面板 5.0pp 的扩大方向一致。",
+        link: "https://dxpress.gelonghui.com/p/3630642" }
+    ]
+  },
   ppi: {
     benchmark: "以 0 轴为荣枯分界，PPI 与库存周期高度相关；市场常看 PPI 见底领先库存低点 5-6 个月，并与 CPI 构成剪刀差。",
     impact: "PPI 转正改善上游利润、抬升名义 GDP；对债市偏空，对周期股偏多。",

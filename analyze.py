@@ -70,6 +70,7 @@ COLUMN_HINTS = {
     "gdp_growth":            {"date_col": "季度",     "val_col": "国内生产总值-同比增长"},
     "cpi":                   {"date_col": "月份",     "val_col": "全国-同比增长"},
     "ppi":                   {"date_col": "月份",     "val_col": "当月同比增长"},
+    "ppi_cpi_gap":           {"date_col": "日期",     "val_col": "PPI-CPI剪刀差"},
     "unemployment":          {"date_col": "date",     "val_col": "value"},
     "trade_balance":         {"date_col": "日期",     "val_col": "贸易差额"},
     "lpr":                   {"date_col": "TRADE_DATE", "val_col": "RATE_1"},
