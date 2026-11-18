@@ -17,7 +17,7 @@ CONFIG_FILE = os.path.join(BASE_DIR, "config.yaml")
 ANALYSIS_OUTPUT = os.path.join(DATA_DIR, "analysis_result.json")
 
 # Indicators where rising is "bad" (signal flipped)
-NEGATIVE_INDICATORS = {"cpi", "ppi", "unemployment", "lpr",
+NEGATIVE_INDICATORS = {"cpi", "unemployment", "lpr",
                        "reserve_ratio", "rmb_rate", "shibor_overnight", "bond_yield_10y"}
 
 # 已知源端长期不更新/派生链中断的指标，用于向页面解释「未更新理由」。

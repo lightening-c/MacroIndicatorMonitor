@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="assets/echarts.min.js"></script>
 <script src="assets/market_views.js?v=20261114b"></script>
-<script src="assets/mv_meta.js?v=20261114"></script>
+<script src="assets/mv_meta.js?v=20261118"></script>
 <script src="assets/ind_views.js?v=20261118"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -565,7 +565,7 @@ var dirTxt=({up:'上行',down:'下行',stable:'走平'})[ind.direction]||'--';
 var maTxt=(ind.ma_short!=null&&ind.ma_long!=null)?('3 期均线 '+fmtNum(ind.ma_short,2)+'，6 期均线 '+fmtNum(ind.ma_long,2)+'，'+(ind.ma_short>=ind.ma_long?'短均线在上（短期强于中期）':'短均线在下（短期弱于中期）')):'均线数据不足';
 var momTxt=(ind.mom_change==null?'':'单期变化 '+(ind.mom_change>0?'+':'')+fmtNum(ind.mom_change,2)+(ind.unit==='%'?'pp':'')+'；');var nr=nextRelease(ind);
 function card(t,body,full){return '<div class="cm-card'+(full?' full':'')+'"><h3>'+t+'</h3>'+body+'</div>'}
-var INV=['cpi','ppi','unemployment','lpr','shibor_overnight','bond_yield_10y'];var inverted=INV.indexOf(ind.id)>=0;var dirLine=inverted?('反向指标：原始走势'+dirTxt+'，按「'+sigW(ind.signal)+'」计（上行视为价格/成本压力上升，下行视为宽松改善）'):('方向：'+sigW(ind.signal)+'（'+dirTxt+'）');
+var INV=['cpi','unemployment','lpr','shibor_overnight','bond_yield_10y'];var inverted=INV.indexOf(ind.id)>=0;var dirLine=inverted?('反向指标：原始走势'+dirTxt+'，按「'+sigW(ind.signal)+'」计（上行视为价格/成本压力上升，下行视为宽松改善）'):('方向：'+sigW(ind.signal)+'（'+dirTxt+'）');
 var posHtml='';if(vals.length){var sorted=vals.slice().sort(function(a,b){return a-b});function q(p){return sorted[Math.min(sorted.length-1,Math.max(0,Math.round(p*(sorted.length-1))))]}var pctNum=vals.filter(function(v){return v<ind.latest_value}).length/vals.length*100;posHtml='<div class="cm-card full"><h3>走势与位置</h3><div class="ind-trend-chart" id="indTrendChart"></div><div class="ind-pos-wrap"><div class="ind-pos-label">历史分位：<b>'+pct+'</b>（最低 '+fmtNum(sorted[0],2)+'，p25 '+fmtNum(q(0.25),2)+'，中位 '+fmtNum(q(0.5),2)+'，p75 '+fmtNum(q(0.75),2)+'，最高 '+fmtNum(sorted[sorted.length-1],2)+'）</div><div class="ind-pos-bar"><span class="ind-pos-marker" style="left:'+pctNum.toFixed(1)+'%"></span></div><div class="ind-pos-scale"><span>最低</span><span>p25</span><span>中位</span><span>p75</span><span>最高</span></div></div><div class="ind-z-chart" id="indZChart"></div><div class="mv-note" style="margin-top:6px;">上图为原值与均线（日频 20/60 期，月频 3/6 期）；红色虚线为市场通用基准。下图为滚动 z 分数，±2 以外为统计上的异常区间。</div></div>'}
 var cards='';
 cards+=card('指标定义','<ul><li>定义：'+(ind.description||ind.name)+'</li>'+(meta&&meta.formula?'<li>计算：'+meta.formula+'</li>':'')+'<li>口径：'+(ind.caliber||'--')+'；频率：'+(ind.frequency||'--')+'；单位：'+(ind.unit||'--')+'；来源：'+(ind.source||'--')+'</li><li>方向口径：'+(inverted?'反向指标（上行计为恶化，适用于利率、失业率、通胀类）':'正向指标（上行计为改善）')+'</li><li>读法：'+(meta?meta.benchmark:'结合历史分位与趋势判断该指标的位置与方向')+'</li></ul>');
