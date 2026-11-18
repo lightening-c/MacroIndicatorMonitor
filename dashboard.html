@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>try{document.documentElement.classList.add('light');if(localStorage.getItem('colorSwap')==='1')document.documentElement.classList.add('swap-colors')}catch(e){}</script>
+<script>try{var __th=localStorage.getItem('dashboardTheme')||'light';if(__th!=='dark')document.documentElement.classList.add('light');if(localStorage.getItem('colorSwap')==='1')document.documentElement.classList.add('swap-colors')}catch(e){}</script>
 <title>宏观经济数据跟踪面板</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="assets/echarts.min.js"></script>
@@ -32,38 +32,61 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .sync-btn:disabled{opacity:0.5;cursor:not-allowed}
 .sync-btn.updating{animation:pulse 1s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-.calendar-card{position:relative;background:linear-gradient(180deg,#ffffff 0%,#f6f9fd 100%);border:1px solid rgba(15,23,42,0.08);border-radius:14px;padding:18px 20px;margin:18px 0 6px;box-shadow:0 8px 28px rgba(15,23,42,0.06)}
-.cal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.cal-title{font-family:'Orbitron',sans-serif;font-size:1.05rem;color:#0f172a;letter-spacing:0.02em;display:flex;align-items:center;gap:9px}
+.calendar-card{position:relative;background:linear-gradient(180deg,#ffffff 0%,#f6f9fd 100%);border:1px solid rgba(15,23,42,0.08);border-radius:14px;padding:12px 14px;margin:12px 0 4px;box-shadow:0 6px 20px rgba(15,23,42,0.05)}
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.cal-title{font-family:'Orbitron',sans-serif;font-size:0.95rem;color:#0f172a;letter-spacing:0.02em;display:flex;align-items:center;gap:8px}
 .cal-title:before{content:'';width:6px;height:18px;border-radius:3px;background:linear-gradient(180deg,#0b7fab,#38bdf8)}
-.cal-nav{display:flex;align-items:center;gap:8px;font-size:0.86rem;color:#475569}
-.cal-btn{background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:999px;padding:3px 12px;cursor:pointer;font-family:inherit;font-size:0.82rem;transition:all .15s}
+.cal-nav{display:flex;align-items:center;gap:6px;font-size:0.78rem;color:#475569}
+.cal-btn{background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:999px;padding:2px 9px;cursor:pointer;font-family:inherit;font-size:0.76rem;transition:all .15s}
 .cal-btn:hover{border-color:#0b7fab;color:#0b7fab;background:#f0f9ff}
-.cal-legend{display:flex;gap:16px;font-size:0.76rem;color:#64748b}
+.cal-legend{display:flex;gap:12px;font-size:0.7rem;color:#64748b}
 .cal-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
-.cal-dow{text-align:center;font-size:0.76rem;color:#94a3b8;font-weight:600;padding:4px 0}
-.cal-cell{min-height:92px;border:1px solid #edf2f7;border-radius:10px;padding:6px 7px;position:relative;background:#fff;overflow:hidden;transition:transform .15s,box-shadow .15s,border-color .15s}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal-dow{text-align:center;font-size:0.7rem;color:#94a3b8;font-weight:600;padding:1px 0}
+.cal-cell{min-height:60px;border:1px solid #edf2f7;border-radius:8px;padding:3px 5px;position:relative;background:#fff;overflow:hidden;transition:transform .15s,box-shadow .15s,border-color .15s}
 .cal-cell.empty{border:none;background:transparent}
 .cal-cell.weekend{background:#f8fafc}
 .cal-cell.has{cursor:pointer}
 .cal-cell.has:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(11,127,171,0.12);border-color:#bae6fd}
 .cal-cell.today{border-color:#0b7fab;box-shadow:0 0 0 1px #0b7fab inset}
-.cal-date{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:0.92rem;font-weight:600;color:#334155}
+.cal-date{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;border-radius:50%;font-size:0.78rem;font-weight:600;color:#334155}
 .cal-cell.today .cal-date{background:#0b7fab;color:#fff}
 .cal-cell.weekend .cal-date{color:#94a3b8}
-.cal-ev{font-size:0.72rem;line-height:1.35;margin-top:4px;padding:2px 6px;border-radius:6px;background:#eef6fb;color:#0b5f80;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.cal-ev{font-size:0.64rem;line-height:1.3;margin-top:2px;padding:1px 5px;border-radius:5px;background:#eef6fb;color:#0b5f80;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
 .cal-ev:before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:#0b7fab;margin-right:5px;vertical-align:1px}
 .cal-ev.core{background:#fdf3e7;color:#92400e}
 .cal-ev.core:before{background:#b45309}
 .cal-more{font-size:0.7rem;color:#94a3b8;margin-top:3px;padding-left:4px}
-.cal-detail{margin-top:14px;font-size:0.86rem;color:#334155;line-height:1.8;background:#f8fbff;border:1px solid #e8f1f8;border-radius:10px;padding:10px 14px}
+.cal-detail{margin-top:8px;font-size:0.78rem;color:#334155;line-height:1.7;background:#f8fbff;border:1px solid #e8f1f8;border-radius:9px;padding:6px 10px}
 .cal-detail b{color:#0f172a}
 .cal-period{color:#94a3b8;font-size:0.78rem}
 .cal-src{color:#94a3b8;font-size:0.76rem}
 .cal-tip{position:absolute;display:none;z-index:50;max-width:300px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(15,23,42,0.14);padding:9px 12px;font-size:0.8rem;line-height:1.65;color:#334155;pointer-events:none}
 .cal-tip .t-name{font-weight:600;color:#0f172a}
 .cal-tip .t-src{color:#94a3b8;font-size:0.74rem}
+html:not(.light) .calendar-card{background:linear-gradient(180deg,#0f1621,#0b1119);border-color:rgba(255,255,255,0.08);box-shadow:0 8px 28px rgba(0,0,0,0.35)}
+html:not(.light) .cal-title{color:#e2e8f0}
+html:not(.light) .cal-nav{color:#94a3b8}
+html:not(.light) .cal-btn{background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.12);color:#cbd5e1}
+html:not(.light) .cal-btn:hover{border-color:#38bdf8;color:#7dd3fc;background:rgba(56,189,248,0.08)}
+html:not(.light) .cal-cell{background:#111a26;border-color:rgba(255,255,255,0.07)}
+html:not(.light) .cal-cell.weekend{background:#0e1620}
+html:not(.light) .cal-date{color:#cbd5e1}
+html:not(.light) .cal-cell.weekend .cal-date{color:#64748b}
+html:not(.light) .cal-cell.today .cal-date{background:#0ea5e9;color:#fff}
+html:not(.light) .cal-ev{background:rgba(56,189,248,0.12);color:#7dd3fc}
+html:not(.light) .cal-ev.core{background:rgba(251,191,36,0.14);color:#fbbf24}
+html:not(.light) .cal-detail{background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.08);color:#cbd5e1}
+html:not(.light) .cal-detail b{color:#f1f5f9}
+html:not(.light) .cal-tip{background:#141c28;border-color:rgba(255,255,255,0.12);color:#cbd5e1}
+html:not(.light) .cal-tip .t-name{color:#f1f5f9}
+html:not(.light) .cal-tip .t-src{color:#94a3b8}
+html:not(.light) .ind-view-head .org{color:#f1f5f9}
+.cal-st-ok{color:#0f8a4d}
+.cal-st-bad{color:#d92d20}
+html:not(.light) .cal-st-ok{color:#4ade80}
+html:not(.light) .cal-st-bad{color:#f87171}
+.cal-reason{color:#94a3b8;font-size:0.72rem}
 @media(max-width:768px){.cal-cell{min-height:60px}.cal-ev{display:none}.cal-cell.has:after{content:'';position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:7px;height:7px;border-radius:50%;background:#b45309}.cal-tip{display:none!important}}
 .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin:20px 0}
 @media(max-width:1200px){.kpi-row{grid-template-columns:repeat(3,1fr)}}
@@ -354,7 +377,7 @@ html.light .doc-panel{background:#ffffff;color:#1f2937;box-shadow:0 28px 70px rg
 <canvas id="particleCanvas"></canvas>
 <div class="scanlines"></div>
 <div class="app-container">
-<header class="header"><div class="header-left"><h1>宏观经济指标</h1><div class="subtitle">中国宏观经济监测系统 · 领先/同步/滞后指标分析</div></div><div class="header-right"><div id="liveClock"></div><div class="cycle-badge" id="cycleBadge">--</div><div class="health-badge" id="healthBadge" title="">--</div><button id="syncBtn" class="sync-btn" onclick="triggerUpdate()">同步更新</button><button id="docBtn" class="sync-btn" onclick="openDoc()" title="数据更新说明与未更新理由">数据说明</button><a href="cycle_report.html" class="report-link">周期报告</a></div></header>
+<header class="header"><div class="header-left"><h1>宏观经济指标</h1><div class="subtitle">中国宏观经济监测系统 · 领先/同步/滞后指标分析</div></div><div class="header-right"><div id="liveClock"></div><div class="cycle-badge" id="cycleBadge">--</div><div class="health-badge" id="healthBadge" title="">--</div><button id="themeBtn" class="sync-btn" onclick="toggleTheme()">深色模式</button><button id="syncBtn" class="sync-btn" onclick="triggerUpdate()">同步更新</button><button id="docBtn" class="sync-btn" onclick="openDoc()" title="数据更新说明与未更新理由">数据说明</button><a href="cycle_report.html" class="report-link">周期报告</a></div></header>
 <div class="calendar-card" id="releaseCalendar"></div>
 <div class="kpi-row" id="kpiRow"></div>
 <div class="section-title">宏观经济指标</div>
@@ -403,23 +426,26 @@ function buildReleaseEvents(D,y,m){var LAG=calLagMap();var ev={};var core={pmi_m
 var DERIVED={m1_m2_gap:1,ppi_cpi_gap:1,tsf_rolling_yoy:1};['leading','coincident','lagging'].forEach(function(cat){(D.indicators[cat]||[]).forEach(function(ind){var f=ind.frequency||'';if(f.indexOf('每日')>=0||DERIVED[ind.id])return;var d=null,pl='';
 if(f.indexOf('季度')>=0){if([0,3,6,9].indexOf(m)>=0){d=new Date(y,m,18);pl='上季度数据'}}
 else{var lag=LAG[ind.id];if(lag===undefined)lag=15;if(lag===-1){d=new Date(y,m+1,0);pl='当月数据'}else{d=new Date(y,m,lag);pl='上月数据'}}
-if(!d)return;var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');(ev[key]=ev[key]||[]).push({name:ind.name,period:pl,core:!!core[ind.id],src:ind.source||'--'})})});
+if(!d)return;var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');(ev[key]=ev[key]||[]).push({id:ind.id,name:ind.name,period:pl,core:!!core[ind.id],src:ind.source||'--'})})});
 Object.keys(ev).forEach(function(k){ev[k].sort(function(a,b){return (b.core?1:0)-(a.core?1:0)})});return ev}
 function buildReleaseCalendar(D){var el=document.getElementById('releaseCalendar');if(!el)return;var now=new Date();if(!CAL_STATE.y){CAL_STATE.y=now.getFullYear();CAL_STATE.m=now.getMonth()}
 function render(){var y=CAL_STATE.y,m=CAL_STATE.m;var ev=buildReleaseEvents(D,y,m);var first=new Date(y,m,1);var startIdx=(first.getDay()+6)%7;var days=new Date(y,m+1,0).getDate();var todayStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
 var html='<div class="cal-head"><div class="cal-title">数据发布日历</div><div class="cal-nav"><button class="cal-btn" id="calPrev">‹</button><span>'+y+' 年 '+(m+1)+' 月</span><button class="cal-btn" id="calNext">›</button><button class="cal-btn" id="calToday">本月</button></div><div class="cal-legend"><span><i class="cal-dot" style="background:#b45309"></i>核心数据</span><span><i class="cal-dot" style="background:#0b7fab"></i>其他数据</span></div></div><div class="cal-grid">'+['一','二','三','四','五','六','日'].map(function(w){return '<div class="cal-dow">'+w+'</div>'}).join('');
 for(var i=0;i<startIdx;i++)html+='<div class="cal-cell empty"></div>';
 var monthCount=0;
-for(var d=1;d<=days;d++){var ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');var list=ev[ds]||[];monthCount+=list.length;var wk=(new Date(y,m,d).getDay()+6)%7;html+='<div class="cal-cell'+(ds===todayStr?' today':'')+(list.length?' has':'')+'" data-date="'+ds+'"'+(wk>=5?' weekend':'')+'><div class="cal-date">'+d+'</div>';list.slice(0,2).forEach(function(x){html+='<div class="cal-ev'+(x.core?' core':'')+'" title="'+x.name+'">'+x.name+'</div>'});if(list.length>2)html+='<div class="cal-more">+'+(list.length-2)+'</div>';html+='</div>'}
+for(var d=1;d<=days;d++){var ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');var list=ev[ds]||[];monthCount+=list.length;var wk=(new Date(y,m,d).getDay()+6)%7;html+='<div class="cal-cell'+(ds===todayStr?' today':'')+(list.length?' has':'')+'" data-date="'+ds+'"'+(wk>=5?' weekend':'')+'><div class="cal-date">'+d+'</div>';list.slice(0,1).forEach(function(x){html+='<div class="cal-ev'+(x.core?' core':'')+'" title="'+x.name+'">'+x.name+'</div>'});if(list.length>1)html+='<div class="cal-more">+'+(list.length-1)+'</div>';html+='</div>'}
 var total=startIdx+days;var tail=(7-total%7)%7;for(var k=0;k<tail;k++)html+='<div class="cal-cell empty"></div>';html+='</div><div class="cal-detail" id="calDetail"></div>';
 el.innerHTML=html;var detail=document.getElementById('calDetail');
 var todayList=ev[todayStr]||[];var nextKey=Object.keys(ev).filter(function(k){return k>todayStr}).sort()[0];
 detail.innerHTML=(todayList.length?'<b>今日发布</b>：'+todayList.map(function(x){return x.name}).join('、')+'。':'')+'本月共 <b>'+monthCount+'</b> 项数据发布'+(nextKey?'；下一次：<b>'+nextKey+'</b>，'+ev[nextKey].map(function(x){return x.name}).join('、'):'')+'。日频指标（Shibor、国债收益率、股指等）每交易日更新，不在此列出。';
+var EMAP={};['leading','coincident','lagging'].forEach(function(c){(D.indicators[c]||[]).forEach(function(i){EMAP[i.id]=i})});
+var REASON={tsf_rolling_yoy:'社融数据源接口滞后，最新数据仅到 2026-04',real_estate_dev:'国房景气指数源数据停更',fx_reserves:'发布单位尚未公布新一期数据'};
+function statusOf(id){var e=EMAP[id];if(!e)return {cls:'',txt:'',reason:''};var ok=!e.stale;var txt=ok?('已更新 · 最新 '+e.latest_date):('未更新 · 最新 '+e.latest_date+'（滞后 '+e.data_age_days+' 天）');var reason=ok?'':(REASON[id]||'发布单位尚未公布新一期数据，或数据接口未同步');return {cls:ok?'cal-st-ok':'cal-st-bad',txt:txt,reason:reason}}
 var tip=document.createElement('div');tip.className='cal-tip';el.appendChild(tip);
-el.querySelectorAll('.cal-cell.has').forEach(function(cell){cell.addEventListener('mouseenter',function(e){var ds=cell.getAttribute('data-date');var list=ev[ds]||[];if(!list.length)return;tip.innerHTML=list.map(function(x){return '<div><span class="t-name">'+x.name+'</span><div class="t-src">'+x.src+' · '+x.period+'</div></div>'}).join('');tip.style.display='block'});
+el.querySelectorAll('.cal-cell.has').forEach(function(cell){cell.addEventListener('mouseenter',function(e){var ds=cell.getAttribute('data-date');var list=ev[ds]||[];if(!list.length)return;tip.innerHTML=list.map(function(x){var st=statusOf(x.id);return '<div style="margin-bottom:6px;"><span class="t-name">'+x.name+'</span><div class="t-src">'+x.src+' · '+x.period+'</div><div class="'+st.cls+'">'+st.txt+'</div>'+(st.reason?'<div class="cal-reason">'+st.reason+'</div>':'')+'</div>'}).join('');tip.style.display='block'});
 cell.addEventListener('mousemove',function(e){var r=el.getBoundingClientRect();var left=e.clientX-r.left+14;var top=e.clientY-r.top+14;if(left+300>r.width)left=e.clientX-r.left-300;if(top+120>r.height)top=e.clientY-r.top-120;tip.style.left=left+'px';tip.style.top=top+'px'});
 cell.addEventListener('mouseleave',function(){tip.style.display='none'});
-cell.addEventListener('click',function(){var ds=cell.getAttribute('data-date');detail.innerHTML='<b>'+ds+'</b><br>'+ev[ds].map(function(x){return '· '+x.name+'<span class="cal-src">　'+x.src+'</span><span class="cal-period">（'+x.period+'）</span>'}).join('<br>')})});
+cell.addEventListener('click',function(){var ds=cell.getAttribute('data-date');detail.innerHTML='<b>'+ds+'</b><br>'+ev[ds].map(function(x){var st=statusOf(x.id);return '· '+x.name+'<span class="cal-src">　'+x.src+'</span><span class="cal-period">（'+x.period+'）</span><br><span class="'+st.cls+'">'+st.txt+'</span>'+(st.reason?'<span class="cal-reason">　'+st.reason+'</span>':'')}).join('<br>')})});
 document.getElementById('calPrev').onclick=function(){CAL_STATE.m--;if(CAL_STATE.m<0){CAL_STATE.m=11;CAL_STATE.y--}render()};
 document.getElementById('calNext').onclick=function(){CAL_STATE.m++;if(CAL_STATE.m>11){CAL_STATE.m=0;CAL_STATE.y++}render()};
 document.getElementById('calToday').onclick=function(){CAL_STATE.y=now.getFullYear();CAL_STATE.m=now.getMonth();render()}}
@@ -608,7 +634,7 @@ var sigTxt={up:'看多',down:'看空',stable:'中性'};
 var rowsHtml=[['债券',pr.bond_indicator,pr.bond_proxy_value,pringChange(D,pr.bond_proxy_id,true),pr.bond_signal],['股票',pr.stock_indicator,pr.stock_proxy_value,pringChange(D,pr.stock_proxy_id,false),pr.stock_signal],['商品',pr.commodity_indicator,pr.commodity_proxy_value,pringChange(D,pr.commodity_proxy_id,false),pr.commodity_signal]].map(function(r){return '<tr><td>'+r[0]+'</td><td>'+(r[1]||'--')+'</td><td>'+(r[2]==null?'--':fmtNum(r[2],2))+'</td><td>'+(r[3]==null?'--':(r[3]>0?'+':'')+fmtNum(r[3],2))+'</td><td>'+(sigTxt[r[4]]||'--')+'</td></tr>'}).join('');
 document.getElementById('pringBench').innerHTML='<table class="bench-table" style="margin-top:10px;"><tr><th>市场</th><th>代理指标</th><th>最新值</th><th>6个月动量</th><th>信号</th></tr>'+rowsHtml+'</table><div class="mv-note" style="margin-top:8px;">普林格按债券→股票→商品依次轮动；债券收益率为反向指标，动量按收益率下行计为正。当前三市场信号：'+(pr.description||'')+'。</div>'}
 function buildCycleCards(D){var ml=D.merrill_lynch||{};var mh='<h3 style="color:'+okColor()+';">美林时钟 Merrill Lynch Clock</h3>';mh+='<div class="ml-info"><span>象限：</span><span class="ml-quadrant">'+(ml.quadrant||'--')+'</span></div>';mh+='<div class="ml-info"><span>增长 X：</span>'+fmtNum(ml.x,3)+' · <span>通胀 Y：</span>'+fmtNum(ml.y,3)+'</div>';mh+='<div class="ml-allocation">'+(ml.advice||'--')+'</div>';mh+='<div class="ml-info" style="margin-top:10px;"><span>资产配置：</span>'+(ml.asset_allocation||'--')+'</div>';mh+='<div class="expand-hint"><span>点击展开：象限轨迹、分项基准与得分</span><span class="chev">▾</span></div><div class="cycle-detail"><div class="ml-quad-wrap" id="mlQuadChart"></div><div id="mlBench"></div></div>';document.getElementById('merrillCard').innerHTML=mh;var pr=D.pring||{};var ph='<h3 style="color:#00d4ff;">普林格周期 Pring Cycle</h3>';ph+='<div class="ml-info"><span>阶段：</span><strong>'+(pr.stage||'--')+'</strong></div>';ph+='<div class="ml-info" style="font-size:0.75rem;color:#8899aa;">'+(pr.description||'')+'</div>';ph+='<div class="pring-signals">';function ps(l,s,i,v){var sc2=s||'stable';var ar=sc2==='up'?'▲':sc2==='down'?'▼':'→';var tx=sc2==='up'?'看多':sc2==='down'?'看空':'中性';return'<div class="pring-sig"><div class="sig-label">'+l+' ('+(i||'')+')</div><div class="sig-val">'+fmtNum(v,2)+'</div><div class="sig-arrow '+sc2+'">'+ar+' '+tx+'</div></div>'}ph+=ps('债券',pr.bond_signal,pr.bond_indicator,pr.bond_proxy_value);ph+=ps('股票',pr.stock_signal,pr.stock_indicator,pr.stock_proxy_value);ph+=ps('商品',pr.commodity_signal,pr.commodity_indicator,pr.commodity_proxy_value);ph+='</div>';ph+='<div class="expand-hint"><span>点击展开：六阶段位置与三市场动量</span><span class="chev">▾</span></div><div class="cycle-detail"><div class="pring-wrap" id="pringDetailChart"></div><div id="pringLadder"></div><div id="pringBench"></div></div>';document.getElementById('pringCard').innerHTML=ph;var cp=D.cycle_phase||{};var s=D.summary||{};var dh='<h3 style="color:#ff006e;">一致性诊断 Diagnosis</h3>';dh+='<div class="ml-info"><span>周期阶段：</span><strong>'+(cp.phase||'--')+'</strong></div>';dh+='<div class="ml-info" style="font-size:0.75rem;color:#8899aa;margin-bottom:8px;">'+(cp.description||'')+'</div>';dh+='<div class="diag-row"><span class="diag-label">领先指标方向</span><span class="diag-val '+(cp.leading_majority||'')+'">'+dirLabel(cp.leading_majority)+'</span></div>';dh+='<div class="diag-row"><span class="diag-label">同步指标方向</span><span class="diag-val '+(cp.coincident_majority||'')+'">'+dirLabel(cp.coincident_majority)+'</span></div>';dh+='<div class="diag-row"><span class="diag-label">滞后指标方向</span><span class="diag-val '+(cp.lagging_majority||'')+'">'+dirLabel(cp.lagging_majority)+'</span></div>';dh+='<div class="summary-stats">';dh+='<span class="stat-chip good">领先改善 '+(s.leading_improving||0)+'</span>';dh+='<span class="stat-chip bad">领先恶化 '+(s.leading_deteriorating||0)+'</span>';dh+='<span class="stat-chip good">同步改善 '+(s.coincident_improving||0)+'</span>';dh+='<span class="stat-chip bad">同步恶化 '+(s.coincident_deteriorating||0)+'</span>';dh+='</div>';document.getElementById('diagCard').innerHTML=dh;bindCycleExpand(D)}
-function initApp(D){document.getElementById('updateTime').textContent=D.update_time||'--';var cycleBadge=document.getElementById('cycleBadge');cycleBadge.style.display='none';var H=D.data_health||{};var hb=document.getElementById('healthBadge');if(hb){if(H.stale_count){hb.className='health-badge warn';hb.textContent='数据陈旧 '+H.stale_count+' 项';hb.title=(H.stale||[]).map(function(x){return x.name+' · 最新 '+x.latest_date+'（'+x.age_days+' 天前）'}).join('\n')}else{hb.className='health-badge';hb.textContent='数据完整';hb.title=''}}hb.style.cursor='pointer';hb.onclick=openDoc;function tick(){var now=new Date();document.getElementById('liveClock').textContent=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0')}tick();setInterval(tick,1000);buildReleaseCalendar(D);buildKpiRow(D);buildIndicatorGrid(D);initToolbar();initGroupMode();initColorSwap();initFileBanner();buildTrendTab(D);buildAccounting(D);buildCommentary(D);initNews();initIndRead(D);buildHeatmap(D);buildComposite(D);buildDecomp(D);buildCycleCards(D);document.querySelectorAll('.tab-btn').forEach(function(btn){btn.addEventListener('click',function(){var tabId=this.getAttribute('data-tab');document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});this.classList.add('active');document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active')});document.getElementById(tabId).classList.add('active');setTimeout(function(){resizeAll()},150)})});window.addEventListener('resize',function(){resizeAll()});buildDoc(D)}
+function initApp(D){document.getElementById('updateTime').textContent=D.update_time||'--';var cycleBadge=document.getElementById('cycleBadge');cycleBadge.style.display='none';var H=D.data_health||{};var hb=document.getElementById('healthBadge');if(hb){if(H.stale_count){hb.className='health-badge warn';hb.textContent='数据陈旧 '+H.stale_count+' 项';hb.title=(H.stale||[]).map(function(x){return x.name+' · 最新 '+x.latest_date+'（'+x.age_days+' 天前）'}).join('\n')}else{hb.className='health-badge';hb.textContent='数据完整';hb.title=''}}hb.style.cursor='pointer';hb.onclick=openDoc;function tick(){var now=new Date();document.getElementById('liveClock').textContent=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0')}tick();setInterval(tick,1000);initTheme();buildReleaseCalendar(D);buildKpiRow(D);buildIndicatorGrid(D);initToolbar();initGroupMode();initColorSwap();initFileBanner();buildTrendTab(D);buildAccounting(D);buildCommentary(D);initNews();initIndRead(D);buildHeatmap(D);buildComposite(D);buildDecomp(D);buildCycleCards(D);document.querySelectorAll('.tab-btn').forEach(function(btn){btn.addEventListener('click',function(){var tabId=this.getAttribute('data-tab');document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});this.classList.add('active');document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active')});document.getElementById(tabId).classList.add('active');setTimeout(function(){resizeAll()},150)})});window.addEventListener('resize',function(){resizeAll()});buildDoc(D)}
 function toggleTheme(){var light=document.documentElement.classList.contains('light');try{localStorage.setItem('dashboardTheme',light?'dark':'light')}catch(e){}location.reload()}
 function initTheme(){var b=document.getElementById('themeBtn');if(!b)return;b.textContent=isLight()?'深色模式':'浅色模式'}
 var SERVER_ORIGIN='http://localhost:4321';
