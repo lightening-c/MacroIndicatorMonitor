@@ -67,6 +67,19 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .cal-st-ok{color:#4ade80}
 .cal-st-bad{color:#f87171}
 .cal-reason{color:#94a3b8;font-size:0.72rem}
+.cal-fit-1 .cal-cell{min-height:80px}
+.cal-fit-1 .cal-date{font-size:1.7rem;min-width:32px;height:32px}
+.cal-fit-1 .cal-ev{font-size:1.02rem;margin-top:3px;padding:2px 6px}
+.cal-fit-1 .cal-dow{font-size:1.7rem}
+.cal-fit-1 .cal-nav{font-size:1.15rem}
+.cal-fit-1 .cal-btn{font-size:1.1rem;padding:2px 10px}
+.cal-fit-2 .cal-cell{min-height:66px}
+.cal-fit-2 .cal-date{font-size:1.35rem;min-width:28px;height:28px}
+.cal-fit-2 .cal-ev{font-size:0.9rem;margin-top:2px;padding:1px 5px}
+.cal-fit-2 .cal-dow{font-size:1.3rem}
+.cal-fit-2 .cal-nav{font-size:0.95rem}
+.cal-fit-2 .cal-btn{font-size:0.9rem;padding:1px 8px}
+.cal-fit-2 .cal-detail{font-size:0.74rem;padding:5px 9px}
 @media(max-width:768px){.cal-cell{min-height:64px}.cal-date{min-width:28px;height:28px;font-size:1.3rem}.cal-ev{display:none}.cal-cell.has:after{content:'';position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:7px;height:7px;border-radius:50%;background:#fbbf24}.cal-tip{display:none!important}}
 .kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin:20px 0}
 @media(max-width:1200px){.kpi-row{grid-template-columns:repeat(3,1fr)}}
@@ -408,6 +421,7 @@ if(f.indexOf('季度')>=0){if([0,3,6,9].indexOf(m)>=0){d=new Date(y,m,18);pl='�
 else{var lag=LAG[ind.id];if(lag===undefined)lag=15;if(lag===-1){d=new Date(y,m+1,0);pl='当月数据'}else{d=new Date(y,m,lag);pl='上月数据'}}
 if(!d)return;var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');(ev[key]=ev[key]||[]).push({id:ind.id,name:ind.name,period:pl,core:!!core[ind.id],src:ind.source||'--',freq:ind.frequency||'--'})})});
 Object.keys(ev).forEach(function(k){ev[k].sort(function(a,b){return (b.core?1:0)-(a.core?1:0)})});return ev}
+function fitCalendar(){var el=document.getElementById('releaseCalendar');if(!el)return;el.classList.remove('cal-fit-1','cal-fit-2');var vh=window.innerHeight;if(el.getBoundingClientRect().bottom>vh-8){el.classList.add('cal-fit-1');if(el.getBoundingClientRect().bottom>vh-8){el.classList.add('cal-fit-2')}}}
 function buildReleaseCalendar(D){var el=document.getElementById('releaseCalendar');if(!el)return;var now=new Date();if(!CAL_STATE.y){CAL_STATE.y=now.getFullYear();CAL_STATE.m=now.getMonth()}
 function render(){var y=CAL_STATE.y,m=CAL_STATE.m;var ev=buildReleaseEvents(D,y,m);var first=new Date(y,m,1);var startIdx=(first.getDay()+6)%7;var days=new Date(y,m+1,0).getDate();var todayStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
 var html='<div class="cal-head"><div class="cal-title">数据发布日历</div><div class="cal-nav"><button class="cal-btn" id="calPrev">‹</button><span>'+y+' 年 '+(m+1)+' 月</span><button class="cal-btn" id="calNext">›</button><button class="cal-btn" id="calToday">本月</button></div><div class="cal-legend"><span><i class="cal-dot" style="background:#b45309"></i>核心数据</span><span><i class="cal-dot" style="background:#0b7fab"></i>其他数据</span></div></div><div class="cal-grid">'+['一','二','三','四','五','六','日'].map(function(w){return '<div class="cal-dow">'+w+'</div>'}).join('');
@@ -428,8 +442,8 @@ cell.addEventListener('mouseleave',function(){tip.style.display='none'});
 cell.addEventListener('click',function(){var ds=cell.getAttribute('data-date');detail.innerHTML='<b>'+ds+'</b><br>'+ev[ds].map(function(x){var st=statusOf(x.id);return '· '+x.name+'<span class="cal-src">　'+x.src+' · '+x.freq+'</span><span class="cal-period">（'+x.period+'）</span><br><span class="'+st.cls+'">'+st.txt+'</span>'+(st.reason?'<span class="cal-reason">　'+st.reason+'</span>':'')}).join('<br>')})});
 document.getElementById('calPrev').onclick=function(){CAL_STATE.m--;if(CAL_STATE.m<0){CAL_STATE.m=11;CAL_STATE.y--}render()};
 document.getElementById('calNext').onclick=function(){CAL_STATE.m++;if(CAL_STATE.m>11){CAL_STATE.m=0;CAL_STATE.y++}render()};
-document.getElementById('calToday').onclick=function(){CAL_STATE.y=now.getFullYear();CAL_STATE.m=now.getMonth();render()}}
-render()}
+document.getElementById('calToday').onclick=function(){CAL_STATE.y=now.getFullYear();CAL_STATE.m=now.getMonth();render()};fitCalendar()}
+render();if(!window.__calResizeBound){window.__calResizeBound=1;window.addEventListener('resize',function(){fitCalendar()})}}
 function buildKpiRow(D){var s=D.summary||{};var ml=D.merrill_lynch||{};var pr=D.pring||{};function ws(v){if(v===null||v===undefined)return'--';return v>0?'+'+v:String(v)}var tiles=[{cls:'accent-cyan',label:'领先信号',value:ws(s.leading_score),sub:'改善 '+(s.leading_improving||0)+' / 恶化 '+(s.leading_deteriorating||0),data:sparkArr(D,'leading'),color:'#00d4ff'},{cls:'accent-gold',label:'同步信号',value:ws(s.coincident_score),sub:'改善 '+(s.coincident_improving||0)+' / 恶化 '+(s.coincident_deteriorating||0),data:sparkArr(D,'coincident'),color:'#ffd700'},{cls:'accent-magenta',label:'滞后信号',value:ws(s.lagging_score),sub:'改善 '+(s.lagging_improving||0)+' / 恶化 '+(s.lagging_deteriorating||0),data:sparkArr(D,'lagging'),color:'#ff006e'},{cls:'accent-green',label:'美林时钟',value:ml.quadrant?ml.quadrant.replace(/\(.*\)/,''):'--',sub:ml.asset_allocation||'',data:ml.trajectory?ml.trajectory.map(function(d){return Math.sqrt(d.x*d.x+d.y*d.y)}):[],color:'#00e676'},{cls:'accent-cyan',label:'普林格周期',value:pr.stage||'--',sub:(pr.bond_signal||'')+' / '+(pr.stock_signal||'')+' / '+(pr.commodity_signal||''),data:[],color:'#00d4ff'},{cls:'accent-gold',label:'综合评分',value:overallScore(s),sub:s.outlook?s.outlook.substring(0,24):'',data:[],color:'#ffd700'}];var html='';tiles.forEach(function(t,i){html+='<div class="kpi-tile '+t.cls+'"><div class="kpi-label">'+t.label+'</div><div class="kpi-value">'+t.value+'</div><div class="kpi-sub">'+t.sub+'</div><canvas class="kpi-spark" id="spark'+i+'"></canvas></div>'});document.getElementById('kpiRow').innerHTML=html;setTimeout(function(){tiles.forEach(function(t,i){if(t.data&&t.data.length>1)drawSparkline(document.getElementById('spark'+i),t.data,t.color)})},200)}
 function cssVar(n){try{return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}catch(e){return''}}
 function hexRgba(h,a){h=(h||'').replace('#','');if(h.length===3)h=h.split('').map(function(c){return c+c}).join('');if(h.length!==6)return'rgba(102,119,136,'+a+')';var n=parseInt(h,16);return'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')'}
