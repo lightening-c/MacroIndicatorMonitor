@@ -11,6 +11,7 @@ import yaml
 import numpy as np
 import pandas as pd
 import akshare as ak
+import requests
 from datetime import datetime, timedelta
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -204,7 +205,7 @@ def create_fetch_function(indicator):
     2. macro_china_shibor_all → Shibor 隔夜利率（提取日期 + O/N-定盘利率）
     3. macro_china_rmb → 人民币中间价（含 fx_gold 回退）
     4. macro_china_freight_index → 货运指数（提取最后一列数值列）
-    5. margin_sh (macro_china_market_margin_sh) → 沪市融资余额（提取日期+融资余额）
+    5. eastmoney_margin_balance → 沪深融资余额（东方财富两融历史，转换为亿元）
     6. 有 FUNC_COLUMN_SPEC 的通用函数 → 按映射提取
     7. 无映射的通用函数 → 保留全部列
     """
@@ -353,35 +354,42 @@ def create_fetch_function(indicator):
             return None
         return _fetch
 
-    # ── 模式 5：沪市融资余额（全景数据）───────────────────────
-    if func_name == "macro_china_market_margin_sh":
+    # ── 模式 5：沪深融资余额（东方财富两融历史）───────────────
+    if func_name == "eastmoney_margin_balance":
 
         def _fetch():
             try:
-                df = ak.macro_china_market_margin_sh()
-                if df is None or df.empty:
-                    print(f"  [WARN] 沪市融资余额返回空数据")
+                url = "https://datacenter-web.eastmoney.com/api/data/v1/get"
+                rows = []
+                page, pages = 1, 1
+                while page <= pages:
+                    payload = requests.get(url, params={
+                        "reportName": "RPTA_RZRQ_LSHJ",
+                        "columns": "DIM_DATE,RZYE",
+                        "source": "WEB",
+                        "client": "WEB",
+                        "sortColumns": "DIM_DATE",
+                        "sortTypes": "1",
+                        "pageSize": "500",
+                        "pageNumber": str(page),
+                    }, timeout=20).json()
+                    result = payload.get("result") or {}
+                    rows.extend(result.get("data") or [])
+                    pages = result.get("pages") or 1
+                    page += 1
+                if not rows:
+                    print(f"  [WARN] {ind_name} 返回空数据")
                     return None
-                date_col_name = spec.get("date_col", "日期") if spec else "日期"
-                # 精确匹配AKShare返回的列名: '融资买入额'
-                val_col_name = "融资买入额"
-                if val_col_name not in df.columns:
-                    # 回退：模糊匹配融资+余额
-                    for c in df.columns:
-                        if '融资' in c and ('余额' in c or '买入额' in c):
-                            val_col_name = c
-                            break
-                if date_col_name in df.columns and val_col_name in df.columns:
-                    result = df[[date_col_name, val_col_name]].copy()
-                    # 原始数据单位是「元」，转为「亿元」并四舍五入
-                    result[val_col_name] = (result[val_col_name] / 1e8).round(2)
-                    result.columns = ["日期", "沪市融资余额"]
-                    print(f"  [INFO] 获取沪市融资余额共 {len(result)} 条数据（已转换为亿元）")
-                    return result
-                print(f"  [WARN] 列名不匹配，可用列: {list(df.columns)}，返回全部列")
-                return df
+                raw = pd.DataFrame(rows)
+                out = pd.DataFrame({
+                    "日期": pd.to_datetime(raw["DIM_DATE"]).dt.strftime("%Y-%m-%d"),
+                    ind_name: (pd.to_numeric(raw["RZYE"], errors="coerce") / 1e8).round(2),
+                }).dropna()
+                out = out.sort_values("日期").drop_duplicates("日期", keep="last")
+                print(f"  [INFO] 获取 {ind_name} 共 {len(out)} 条（{out.iloc[0,0]} ~ {out.iloc[-1,0]}，亿元）")
+                return out
             except Exception as e:
-                print(f"  [ERR] 沪市融资余额获取失败: {e}")
+                print(f"  [ERR] {ind_name} 获取失败: {e}")
                 traceback.print_exc()
             return None
         return _fetch

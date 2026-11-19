@@ -91,12 +91,12 @@ indicators:
       akshare_params: { symbol: sh000001 }
 
     - id: margin_sh
-      name: 沪市融资余额
+      name: 沪深融资余额
       unit: 亿元
-      source: 上交所
+      source: 东方财富
       frequency: 每日
-      description: 杠杆资金反映市场风险偏好, 领先市场
-      akshare_func: macro_china_market_margin_sh
+      description: 沪深两市融资余额, 杠杆资金反映市场风险偏好, 领先市场
+      akshare_func: eastmoney_margin_balance
 
     # ── 利率/金融条件 ──
     - id: bond_yield_10y
@@ -159,12 +159,13 @@ indicators:
       akshare_func: macro_china_fixed_asset_investment
 
     - id: electricity
-      name: 全社会用电量增速
+      name: 发电量增速
       unit: "%"
       source: 国家统计局
       frequency: 月度
-      description: 电力消费与生产高度同步
-      akshare_func: macro_china_society_electricity
+      description: 发电量当月同比, 电力生产与工业生产同步
+      akshare_func: macro_china_nbs_nation
+      akshare_params: {kind: 月度数据, path: "能源>能源主要产品产量>发电量", row: "发电量_同比增长(%)"}
 
     - id: exports_yoy
       name: 出口增速

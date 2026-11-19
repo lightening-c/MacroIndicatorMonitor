@@ -25,7 +25,6 @@ NEGATIVE_INDICATORS = {"cpi", "unemployment", "lpr",
 STALE_SOURCE_NOTES = {
     "tsf_rolling_yoy": "派生指标（社融滚动 12 个月汇总），自 {latest} 后未再产出新值，需检查派生计算链",
     "real_estate_dev": "国家统计局自 {latest} 后未再发布国房景气指数",
-    "margin_sh": "上交所融资余额公布滞后，源端最新仅到 {latest}",
 }
 
 # ---------------------------------------------------------------------------
@@ -43,7 +42,7 @@ COLUMN_HINTS = {
     "consumer_confidence":   {"date_col": "月份",     "val_col": "消费者信心指数-指数值"},
     "enterprise_boom":       {"date_col": "日期",     "val_col": "企业景气指数"},
     "shibor_overnight":      {"date_col": "日期",     "val_col": "隔夜Shibor"},
-    "margin_sh":             {"date_col": "日期",     "val_col": "沪市融资余额"},
+    "margin_sh":             {"date_col": "日期",     "val_col": "沪深融资余额"},
     "commodity_price_index": {"date_col": "日期", "val_col": "中证商品期货指数"},
     "new_house_price":       {"date_col": "日期",     "val_col": "新建住宅价格指数同比"},
     "sh_index":              {"date_col": "日期",     "val_col": "收盘价"},
@@ -51,7 +50,7 @@ COLUMN_HINTS = {
     "industrial_production": {"date_col": "日期",     "val_col": "工业增加值增速"},
     "fixed_asset_investment":{"date_col": "日期",     "val_col": "固定资产投资当月同比"},
     "retail_sales":          {"date_col": "月份",     "val_col": "同比增长"},
-    "electricity":           {"date_col": "日期",     "val_col": "用电量当月同比"},
+    "electricity":           {"date_col": "日期",     "val_col": "发电量增速"},
     "services_pmi":          {"date_col": "日期",     "val_col": "财新服务业PMI"},
     "services_production_index": {"date_col": "日期", "val_col": "服务业生产指数"},
     "residential_income":    {"date_col": "日期",     "val_col": "居民人均可支配收入增速"},

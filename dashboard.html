@@ -8,8 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="assets/echarts.min.js"></script>
 <script src="assets/market_views.js?v=20261114b"></script>
-<script src="assets/mv_meta.js?v=20261118"></script>
-<script src="assets/ind_views.js?v=20261118"></script>
+<script src="assets/mv_meta.js?v=20261119"></script>
+<script src="assets/ind_views.js?v=20261119"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:18px}
@@ -547,7 +547,7 @@ function nextRelease(ind){var id=ind.id||'',f=ind.frequency||'';var d=new Date(i
 var LAG={pmi_manufacturing:-1,pmi_non_manufacturing:-1,services_pmi:3,cpi:9,ppi:9,m1_growth:13,m2_growth:13,social_financing:13,tsf_rolling_yoy:13,exports_yoy:8,trade_balance:8,industrial_production:16,retail_sales:16,fixed_asset_investment:16,services_production_index:16,unemployment:16,consumer_confidence:25,electricity:20,fiscal_revenue:20,fiscal_expenditure:20,fx_reserves:7,industrial_profit:27,inventory_growth:27,lpr:20,realestate_investment:16,house_sales_area:16,new_house_price:16,real_estate_dev:16};
 var quarterly=(f.indexOf('季度')>=0);var daily=(f.indexOf('每日')>=0);
 function ymd(x){return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
-if(daily){var nd=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1);return {date:ymd(nd),period:'次日',note:'日频数据，次日更新'}}
+if(daily){var nd=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1);while(nd.getDay()===0||nd.getDay()===6)nd.setDate(nd.getDate()+1);var pd=new Date(nd.getFullYear(),nd.getMonth(),nd.getDate()+1);return {date:ymd(pd),period:'',note:'日频数据，通常在数据日次日早间发布',daily:true}}
 var py=d.getFullYear(),pm=d.getMonth()+(quarterly?3:1);
 var period=new Date(py,pm,1);var lag=LAG[id];
 if(lag===undefined)lag=quarterly?18:15;
@@ -571,7 +571,10 @@ var cards='';
 cards+=card('指标定义','<ul><li>定义：'+(ind.description||ind.name)+'</li>'+(meta&&meta.formula?'<li>计算：'+meta.formula+'</li>':'')+'<li>口径：'+(ind.caliber||'--')+'；频率：'+(ind.frequency||'--')+'；单位：'+(ind.unit||'--')+'；来源：'+(ind.source||'--')+'</li><li>方向口径：'+(inverted?'反向指标（上行计为恶化，适用于利率、失业率、通胀类）':'正向指标（上行计为改善）')+'</li><li>读法：'+(meta?meta.benchmark:'结合历史分位与趋势判断该指标的位置与方向')+'</li></ul>');
 cards+=card('数值与位置','<ul><li>最新：<b>'+fmtNum(ind.latest_value,2)+(ind.unit||'')+'</b>（'+formatDate(ind.latest_date)+'），近 '+vals.length+' 期分位 <b>'+pct+'</b></li><li>'+dirLine+'；'+momTxt+(ind.yoy_change!=null?'同比变化 '+fmtNum(ind.yoy_change,2):'')+'</li><li>频率：'+(ind.frequency||'--')+'；来源：'+(ind.source||'--')+'</li></ul>');
 cards+=card('走势','<ul><li>'+maTxt+'</li><li>趋势强度：'+(ind.trend_strength==null?'--':fmtNum(ind.trend_strength,2))+'（-1 至 1，绝对值越大趋势越明确）</li></ul>');
-cards+=card('预期与观察','<ul><li>预计下次发布窗口：<b>'+nr.date+'</b>（对应 '+nr.period+' 数据，'+nr.note+'）</li><li>重点关注：'+(meta?meta.watch:'下一期数据与趋势是否延续')+'</li></ul>');
+var today0=new Date();today0.setHours(0,0,0,0);var nrPast=new Date(nr.date+'T00:00:00')<today0;var lagTxt=(ind.data_age_days==null?'':'，最新 '+ind.latest_date+'（滞后 '+ind.data_age_days+' 天）');var obsLine;
+if(nrPast){obsLine='<li>逾期未更新：'+(nr.daily?'正常应于 <b>'+nr.date+'</b> 更新':'应于 <b>'+nr.date+'</b> 发布（对应 '+nr.period+' 数据）')+lagTxt+'；'+nr.note+'</li>'}
+else{obsLine='<li>预计下次发布窗口：<b>'+nr.date+'</b>'+(nr.daily?'（'+nr.note+'）':'（对应 '+nr.period+' 数据，'+nr.note+'）')+'</li>'}
+cards+=card('预期与观察','<ul>'+obsLine+'<li>重点关注：'+(meta?meta.watch:'下一期数据与趋势是否延续')+'</li></ul>');
 cards+=card('影响与传导','<ul><li>'+(meta?meta.impact:'该指标的传导路径暂未收录，可结合所属口径理解。')+'</li></ul>');
 var views=(meta&&meta.views)||[];var vh='';
 if(views.length){var cnt={};views.forEach(function(v){cnt[v.stance]=(cnt[v.stance]||0)+1});var sum=Object.keys(cnt).map(function(k){return k+' '+cnt[k]+' 条'}).join('、');vh='<ul>';views.forEach(function(v){var cls=(v.stance.indexOf('分歧')>=0||v.stance.indexOf('时点差')>=0)?'part':'ok';vh+='<li class="ind-view-item"><div class="ind-view-head"><span class="org">'+v.org+'</span><span>'+v.date+'</span><span class="mv-stance '+cls+'">'+v.stance+'</span></div><div class="ind-view-text">「'+v.view+'」<a class="ind-view-link" href="'+v.link+'" target="_blank" rel="noopener">原文 ↗</a></div><div class="ind-view-note">对照：'+v.note+'</div></li>'});vh+='</ul><div class="mv-note" style="margin-top:6px;">收录 '+views.length+' 条相关观点（'+sum+'）。</div>'}else{vh='<div class="mv-note">暂未收录针对该指标的机构观点，可参考上方「市场机构观点」的宏观综述。</div>'}
