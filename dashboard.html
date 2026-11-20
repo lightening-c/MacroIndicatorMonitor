@@ -66,6 +66,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .cal-tip .t-src{color:#94a3b8;font-size:0.74rem}
 .cal-st-ok{color:#4ade80}
 .cal-st-bad{color:#f87171}
+.cal-st-warn{color:#f59e0b}
 .cal-reason{color:#94a3b8;font-size:0.72rem}
 .cal-fit-1 .cal-cell{min-height:80px}
 .cal-fit-1 .cal-date{font-size:1.7rem;min-width:32px;height:32px}
@@ -421,11 +422,11 @@ function findInAll(all,id){for(var i=0;i<all.length;i++){if(all[i].id===id)retur
 function overallScore(s){var sc=(s.leading_score||0)+(s.coincident_score||0)+(s.lagging_score||0);if(sc>3)return'偏强';if(sc>0)return'略强';if(sc>-3)return'中性';if(sc>-6)return'偏弱';return'弱势'}
 function sparkArr(D,key){if(!D.composite_indices||!D.composite_indices[key])return[];return D.composite_indices[key].map(function(d){return d.value})}
 var CAL_STATE={y:0,m:0};
-function calLagMap(){return {pmi_manufacturing:-1,pmi_non_manufacturing:-1,services_pmi:3,cpi:9,ppi:9,m1_growth:13,m2_growth:13,social_financing:13,tsf_rolling_yoy:13,exports_yoy:8,trade_balance:8,industrial_production:16,retail_sales:16,fixed_asset_investment:16,services_production_index:16,unemployment:16,consumer_confidence:25,electricity:20,fiscal_revenue:20,fiscal_expenditure:20,fx_reserves:7,industrial_profit:27,inventory_growth:27,lpr:20,realestate_investment:16,house_sales_area:16,new_house_price:16,real_estate_dev:16}}
+function calLagMap(){return {pmi_manufacturing:-1,pmi_non_manufacturing:-1,services_pmi:3,cpi:9,ppi:9,m1_growth:13,m2_growth:13,social_financing:13,tsf_rolling_yoy:13,exports_yoy:8,trade_balance:8,industrial_production:16,retail_sales:16,fixed_asset_investment:16,services_production_index:16,unemployment:16,consumer_confidence:25,electricity:16,fiscal_revenue:20,fiscal_expenditure:20,fx_reserves:7,industrial_profit:27,inventory_growth:27,lpr:20,realestate_investment:16,house_sales_area:16,new_house_price:16,real_estate_dev:16}}
 function buildReleaseEvents(D,y,m){var LAG=calLagMap();var ev={};var core={pmi_manufacturing:1,pmi_non_manufacturing:1,cpi:1,ppi:1,m1_growth:1,m2_growth:1,social_financing:1,gdp_growth:1};
 var DERIVED={m1_m2_gap:1,ppi_cpi_gap:1,tsf_rolling_yoy:1};['leading','coincident','lagging'].forEach(function(cat){(D.indicators[cat]||[]).forEach(function(ind){var f=ind.frequency||'';if(f.indexOf('每日')>=0||DERIVED[ind.id])return;var d=null,pl='';
 if(f.indexOf('季度')>=0){if([0,3,6,9].indexOf(m)>=0){d=new Date(y,m,18);pl='上季度数据'}}
-else{var lag=LAG[ind.id];if(lag===undefined)lag=15;if(lag===-1){d=new Date(y,m+1,0);pl='当月数据'}else{d=new Date(y,m,lag);pl='上月数据'}}
+else if(ind.id==='lpr'){d=new Date(y,m,20);pl='当月数据'}else{var lag=LAG[ind.id];if(lag===undefined)lag=15;if(lag===-1){d=new Date(y,m+1,0);pl='当月数据'}else{d=new Date(y,m,lag);pl='上月数据'}}
 if(!d)return;var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');(ev[key]=ev[key]||[]).push({id:ind.id,name:ind.name,period:pl,core:!!core[ind.id],src:ind.source||'--',freq:ind.frequency||'--'})})});
 Object.keys(ev).forEach(function(k){ev[k].sort(function(a,b){return (b.core?1:0)-(a.core?1:0)})});return ev}
 function fitCalendar(){var el=document.getElementById('releaseCalendar');if(!el)return;el.classList.remove('cal-fit-1','cal-fit-2','cal-fit-3');el.style.maxHeight='';el.style.overflowY='';var vh=window.innerHeight;var steps=['cal-fit-1','cal-fit-2','cal-fit-3'];for(var i=0;i<steps.length;i++){if(el.getBoundingClientRect().bottom>vh-8){el.classList.add(steps[i])}else{break}}if(el.getBoundingClientRect().bottom>vh-8){var top=el.getBoundingClientRect().top;el.style.maxHeight=Math.max(260,vh-top-12)+'px';el.style.overflowY='auto'}}
@@ -441,7 +442,7 @@ var todayList=ev[todayStr]||[];var nextKey=Object.keys(ev).filter(function(k){re
 detail.innerHTML=(todayList.length?'<b>今日发布</b>：'+todayList.map(function(x){return x.name}).join('、')+'。':'')+'本月共 <b>'+monthCount+'</b> 项数据发布'+(nextKey?'；下一次：<b>'+nextKey+'</b>，'+ev[nextKey].map(function(x){return x.name}).join('、'):'')+'。日频指标（Shibor、国债收益率、股指等）每交易日更新，不在此列出。';
 var EMAP={};['leading','coincident','lagging'].forEach(function(c){(D.indicators[c]||[]).forEach(function(i){EMAP[i.id]=i})});
 var REASON={tsf_rolling_yoy:'社融数据源接口滞后，最新数据仅到 2026-04',real_estate_dev:'国房景气指数源数据停更',fx_reserves:'发布单位尚未公布新一期数据'};
-function statusOf(id){var e=EMAP[id];if(!e)return {cls:'',txt:'',reason:''};var nr=nextRelease(e);var today=new Date();var rd=new Date(nr.date+'T00:00:00');if(today<=rd){return {cls:'cal-st-ok',txt:'正常 · 最新 '+e.latest_date,reason:'下一期预计 '+nr.date+' 发布'}}var reason=REASON[id]||('已过预计发布日 '+nr.date+'，发布单位尚未公布或数据接口未同步');return {cls:'cal-st-bad',txt:'未更新 · 最新 '+e.latest_date+'（滞后 '+e.data_age_days+' 天）',reason:reason}}
+function statusOf(id){var e=EMAP[id];if(!e)return {cls:'',txt:'',reason:''};var nr=nextRelease(e);var today=new Date();var rd=new Date(nr.date+'T00:00:00');if(today<=rd){return {cls:'cal-st-ok',txt:'正常 · 最新 '+e.latest_date,reason:'下一期预计 '+nr.date+' 发布'}}var grace=new Date(rd.getTime()+5*86400000);if(today<=grace){return {cls:'cal-st-warn',txt:'待同步 · 最新 '+e.latest_date,reason:'预计 '+nr.date+' 发布，数据源尚未同步'}}var reason=REASON[id]||('已过预计发布日 '+nr.date+'，发布单位尚未公布或数据接口未同步');return {cls:'cal-st-bad',txt:'未更新 · 最新 '+e.latest_date+'（滞后 '+e.data_age_days+' 天）',reason:reason}}
 var tip=document.createElement('div');tip.className='cal-tip';el.appendChild(tip);
 el.querySelectorAll('.cal-cell.has').forEach(function(cell){cell.addEventListener('mouseenter',function(e){var ds=cell.getAttribute('data-date');var list=ev[ds]||[];if(!list.length)return;tip.innerHTML=list.map(function(x){var st=statusOf(x.id);return '<div style="margin-bottom:6px;"><span class="t-name">'+x.name+'</span><div class="t-src">'+x.src+' · '+x.freq+' · '+x.period+'</div><div class="'+st.cls+'">'+st.txt+'</div>'+(st.reason?'<div class="cal-reason">'+st.reason+'</div>':'')+'</div>'}).join('');tip.style.display='block'});
 cell.addEventListener('mousemove',function(e){var r=el.getBoundingClientRect();var left=e.clientX-r.left+14;var top=e.clientY-r.top+14;if(left+300>r.width)left=e.clientX-r.left-300;if(top+120>r.height)top=e.clientY-r.top-120;tip.style.left=left+'px';tip.style.top=top+'px'});
@@ -544,7 +545,7 @@ return h}
 function buildMarketViews(){var mv=window.__MARKET_VIEWS__;if(!mv||!mv.items||!mv.items.length)return '';var h='<div class="cm-card full"><h3>市场机构观点（人工整理 · 更新 '+(mv.updated||'')+'）</h3><ul>';mv.items.forEach(function(it){var cls=it.stance.indexOf('分歧')>=0?'diff':(it.stance.indexOf('部分')>=0?'part':'ok');var meta=(window.__MV_META__||{})[it.org+'|'+it.date+'|'+it.topic]||null;h+='<li class="mv-item"><div class="mv-head"><span class="mv-org">'+it.org+'</span><span class="mv-date">'+it.date+'</span><span class="mv-topic">'+it.topic+'</span><span class="mv-stance '+cls+'">'+it.stance+'</span></div><div class="mv-view">「'+it.view+'」<a class="mv-link" href="'+it.link+'" target="_blank" rel="noopener">原文 ↗</a></div><div class="mv-note"><span class="k">对照</span>：'+it.note+'</div>'+(meta?'<div class="mv-meta"><span class="k">归因</span>：'+meta.cause+'　<span class="k">处理</span>：'+meta.action+'</div>':'')+'</li>'});h+='<li class="cm-foot">观点为人工摘录，可能与原文表述有出入，数据口径以原文为准；链接指向公开来源。</li></ul></div>';return h}
 function buildCorrections(){var list=window.__CORRECTIONS__||[];if(!list.length)return '';var h='<div class="cm-card full"><h3>模型修正记录</h3><ul>';list.forEach(function(c){h+='<li class="corr-item"><span class="corr-date">'+c.date+'</span><b>'+c.item+'</b>：'+c.issue+'；<span class="corr-fix">修正：'+c.fix+'</span></li>'});h+='<li class="cm-foot" style="display:block;">修正记录包含由「机构观点对照—归因」触发与自查发现的问题，均已修复并备注。</li></ul></div>';return h}
 function nextRelease(ind){var id=ind.id||'',f=ind.frequency||'';var d=new Date(ind.latest_date||Date.now());
-var LAG={pmi_manufacturing:-1,pmi_non_manufacturing:-1,services_pmi:3,cpi:9,ppi:9,m1_growth:13,m2_growth:13,social_financing:13,tsf_rolling_yoy:13,exports_yoy:8,trade_balance:8,industrial_production:16,retail_sales:16,fixed_asset_investment:16,services_production_index:16,unemployment:16,consumer_confidence:25,electricity:20,fiscal_revenue:20,fiscal_expenditure:20,fx_reserves:7,industrial_profit:27,inventory_growth:27,lpr:20,realestate_investment:16,house_sales_area:16,new_house_price:16,real_estate_dev:16};
+var LAG={pmi_manufacturing:-1,pmi_non_manufacturing:-1,services_pmi:3,cpi:9,ppi:9,m1_growth:13,m2_growth:13,social_financing:13,tsf_rolling_yoy:13,exports_yoy:8,trade_balance:8,industrial_production:16,retail_sales:16,fixed_asset_investment:16,services_production_index:16,unemployment:16,consumer_confidence:25,electricity:16,fiscal_revenue:20,fiscal_expenditure:20,fx_reserves:7,industrial_profit:27,inventory_growth:27,lpr:20,realestate_investment:16,house_sales_area:16,new_house_price:16,real_estate_dev:16};
 var quarterly=(f.indexOf('季度')>=0);var daily=(f.indexOf('每日')>=0);
 function ymd(x){return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
 if(daily){var nd=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1);while(nd.getDay()===0||nd.getDay()===6)nd.setDate(nd.getDate()+1);var pd=new Date(nd.getFullYear(),nd.getMonth(),nd.getDate()+1);return {date:ymd(pd),period:'',note:'日频数据，通常在数据日次日早间发布',daily:true}}
@@ -552,7 +553,8 @@ var py=d.getFullYear(),pm=d.getMonth()+(quarterly?3:1);
 var period=new Date(py,pm,1);var lag=LAG[id];
 if(lag===undefined)lag=quarterly?18:15;
 var rel;
-if(lag===-1){rel=new Date(py,pm+1,0)}
+if(id==='lpr'){rel=new Date(d.getFullYear(),d.getMonth()+1,20)}
+else if(lag===-1){rel=new Date(py,pm+1,0)}
 else if(quarterly){rel=new Date(py,pm+3,lag)}
 else{rel=new Date(py,pm+1,lag)}
 var plabel=quarterly?('第 '+Math.floor(period.getMonth()/3+1)+' 季度'):(period.getFullYear()+'-'+String(period.getMonth()+1).padStart(2,'0'));
