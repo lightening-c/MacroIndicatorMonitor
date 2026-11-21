@@ -1411,6 +1411,12 @@ def run_analysis():
     if cphase:
         print(f"  周期阶段: {cphase}")
 
+    try:
+        import corrections
+        corrections.update()
+    except Exception as e:
+        print(f"  [WARN] 修正记录检测失败: {e}")
+
     return results
 
 

@@ -270,6 +270,9 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         elif self.path == "/api/manual-views":
             self.send_json(200, {"ok": True, "items": load_manual_views(),
                                  "dismissed": load_dismissed_views()})
+        elif self.path == "/api/corrections":
+            items = _load_list(os.path.join(BASE_DIR, "data", "corrections_auto.json"))
+            self.send_json(200, {"ok": True, "items": items})
         elif self.path.startswith("/api/report-abstract"):
             from urllib.parse import urlparse, parse_qs
             import re as _re

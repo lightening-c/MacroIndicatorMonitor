@@ -6,6 +6,7 @@
 import os
 import re
 import sys
+import time
 import traceback
 import yaml
 import numpy as np
@@ -17,6 +18,8 @@ from datetime import datetime, timedelta
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 CONFIG_FILE = os.path.join(BASE_DIR, "config.yaml")
+WARN_LOG = os.path.join(DATA_DIR, "fetch_warnings.json")
+FETCH_ATTEMPTS = 3
 
 # ──────────────────────────────────────────────────────────────────
 #  各 AKShare 函数的精确列名映射
@@ -132,6 +135,53 @@ def load_config():
         return yaml.safe_load(f)
 
 
+def _last_date_str(path):
+    """读取已有 CSV 最后一行的首列（日期），用于端点回退判断"""
+    try:
+        with open(path, "r", encoding="utf-8-sig") as f:
+            lines = [ln for ln in f.read().splitlines() if ln.strip()]
+        if len(lines) < 2:
+            return ""
+        return lines[-1].split(",")[0].strip().strip('"')
+    except Exception:
+        return ""
+
+
+def _log_warning(entry):
+    import json
+    try:
+        items = []
+        if os.path.exists(WARN_LOG):
+            with open(WARN_LOG, "r", encoding="utf-8") as f:
+                items = json.load(f) or []
+        items.append(entry)
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(WARN_LOG, "w", encoding="utf-8") as f:
+            json.dump(items, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def fetch_with_retry(fetch_func, attempts=FETCH_ATTEMPTS):
+    """带重试的采集：空数据或异常都会重试，两次重试间隔 2 秒"""
+    for attempt in range(1, attempts + 1):
+        try:
+            df = fetch_func()
+            if df is not None and not df.empty:
+                return df
+            if attempt < attempts:
+                print(f"  [WARN] 返回空数据（第 {attempt} 次，重试）")
+        except Exception as e:
+            if attempt < attempts:
+                print(f"  [ERR] 采集异常（第 {attempt} 次，重试）: {e}")
+            else:
+                print(f"  [ERR] 采集异常: {e}")
+                traceback.print_exc()
+        if attempt < attempts:
+            time.sleep(2)
+    return None
+
+
 def save_csv(df, indicator_id, date_col=None):
     """保存 DataFrame 为 CSV（data/{indicator_id}.csv），按日期排序去重"""
     if df is None or df.empty:
@@ -161,6 +211,14 @@ def save_csv(df, indicator_id, date_col=None):
 
     filename = f"{indicator_id}.csv"
     filepath = os.path.join(DATA_DIR, filename)
+    if os.path.exists(filepath) and date_col and date_col in df.columns:
+        old_last = _last_date_str(filepath)
+        new_last = str(df[date_col].iloc[-1]).strip()
+        if old_last and new_last and new_last < old_last:
+            print(f"  [WARN] 端点回退: 新数据末日 {new_last} 早于已有 {old_last}，保留旧文件")
+            _log_warning({"id": indicator_id, "name": indicator_id,
+                          "old": old_last, "new": new_last})
+            return True
     df.to_csv(filepath, index=False, encoding="utf-8-sig")
     print(f"  [OK] 保存 {filename} ({len(df)} 条记录)")
     return True
@@ -794,19 +852,15 @@ def fetch_all():
                 results["failed"].append(ind_id)
                 continue
 
-            try:
-                df = fetch_func()
-                if df is not None and not df.empty:
-                    if save_csv(df, ind_id):
-                        results["success"].append(ind_id)
-                    else:
-                        results["failed"].append(ind_id)
+            df = fetch_with_retry(fetch_func)
+
+            if df is not None and not df.empty:
+                if save_csv(df, ind_id):
+                    results["success"].append(ind_id)
                 else:
-                    print(f"  [WARN] 返回空数据")
                     results["failed"].append(ind_id)
-            except Exception as e:
-                print(f"  [ERR] 采集异常: {e}")
-                traceback.print_exc()
+            else:
+                print(f"  [ERR] 重试 {FETCH_ATTEMPTS} 次仍失败")
                 results["failed"].append(ind_id)
 
     # ── 汇总 ──────────────────────────────────────────────────
