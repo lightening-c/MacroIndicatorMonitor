@@ -288,9 +288,9 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
             try:
-                limit = int(qs.get("limit", ["8"])[0])
+                limit = int(qs.get("limit", ["10"])[0])
             except ValueError:
-                limit = 8
+                limit = 10
             force = qs.get("force", ["0"])[0] == "1"
             try:
                 import views_feed

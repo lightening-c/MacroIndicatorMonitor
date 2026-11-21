@@ -84,7 +84,7 @@ def fetch_reports(days=45):
     return out
 
 
-def get_views(limit=8, force=False):
+def get_views(limit=10, force=False):
     now = time.time()
     if not force and _cache["items"] and now - _cache["ts"] < _TTL:
         return _cache["items"][:limit]
