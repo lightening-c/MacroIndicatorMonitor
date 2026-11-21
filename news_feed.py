@@ -78,7 +78,7 @@ def _scrape_links(url, pattern, source, time_from_url=True):
         m = re.search(pattern, href)
         if not m:
             continue
-        title = title.strip()
+        title = " ".join(title.split())
         if not title or title in seen or not _match(title):
             continue
         seen.add(title)
@@ -110,6 +110,31 @@ def fetch_qstheory():
                          r"/20\d{6}/", "求是")
 
 
+def fetch_stats():
+    return _scrape_links("https://www.stats.gov.cn/sj/zxfb/", r"t20\d{6}", "国家统计局")
+
+
+def fetch_ndrc():
+    return _scrape_links("https://www.ndrc.gov.cn/xwdt/xwfb/", r"t20\d{6}", "发改委")
+
+
+def fetch_gov():
+    import json
+    url = ("https://sousuo.www.gov.cn/search-gov/data?t=zhengcelibrary_gw&q=&timetype=timeqb"
+           "&mintime=&maxtime=&sort=pubtime&sortType=1&searchfield=title&p=1&n=15")
+    data = json.loads(_get(url))
+    lst = (data.get("searchVO") or {}).get("listVO") or []
+    out = []
+    for it in lst:
+        title = " ".join((it.get("title") or "").split())
+        if not title or not _match(title):
+            continue
+        out.append({"title": title, "summary": (it.get("summary") or "")[:160],
+                    "time": _norm_time((it.get("pubtimeStr") or "").replace(".", "-")),
+                    "link": it.get("url") or "", "source": "国务院"})
+    return out
+
+
 def fetch_csrc():
     html = _get("https://www.csrc.gov.cn/csrc/index.shtml")
     out, seen = [], set()
@@ -138,8 +163,9 @@ def get_macro_news(limit=30, force=False):
 
     items = []
     # 每个来源设上限，保证官方媒体不会被快讯流淹没
-    sources = [(fetch_eastmoney, 15), (fetch_xinhua, 10), (fetch_people, 10),
-               (fetch_qstheory, 10), (fetch_csrc, 12)]
+    sources = [(fetch_eastmoney, 12), (fetch_xinhua, 8), (fetch_people, 8),
+               (fetch_qstheory, 8), (fetch_csrc, 10),
+               (fetch_stats, 10), (fetch_ndrc, 10), (fetch_gov, 10)]
     for fn, cap in sources:
         try:
             items.extend(fn()[:cap])
@@ -155,6 +181,21 @@ def get_macro_news(limit=30, force=False):
         uniq.append(it)
     uniq.sort(key=lambda x: x.get("time") or "", reverse=True)
 
-    if uniq:
-        _cache.update(ts=now, items=uniq)
-    return uniq[:limit]
+    # 每个来源先保底 2 条，保证官方来源不被快讯流淹没；再按时间补足
+    per, picked = {}, []
+    for it in uniq:
+        src = it.get("source", "")
+        if per.get(src, 0) < 2:
+            picked.append(it)
+            per[src] = per.get(src, 0) + 1
+    chosen = {id(x) for x in picked}
+    for it in uniq:
+        if len(picked) >= limit:
+            break
+        if id(it) not in chosen:
+            picked.append(it)
+    picked.sort(key=lambda x: x.get("time") or "", reverse=True)
+
+    if picked:
+        _cache.update(ts=now, items=picked)
+    return picked[:limit]
