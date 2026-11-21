@@ -268,7 +268,8 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/api/status":
             self.send_json(200, {"ok": True, "running": STATUS["running"], "current_step": STATUS["current_step"], "last_update": STATUS["last_update"], "last_result": STATUS["last_result"]})
         elif self.path == "/api/manual-views":
-            self.send_json(200, {"ok": True, "items": load_manual_views()})
+            self.send_json(200, {"ok": True, "items": load_manual_views(),
+                                 "dismissed": load_dismissed_views()})
         elif self.path.startswith("/api/report-abstract"):
             from urllib.parse import urlparse, parse_qs
             import re as _re
