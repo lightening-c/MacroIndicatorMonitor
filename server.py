@@ -84,6 +84,22 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/status":
             self.send_json(200, {"ok": True, "running": STATUS["running"], "current_step": STATUS["current_step"], "last_update": STATUS["last_update"], "last_result": STATUS["last_result"]})
+        elif self.path.startswith("/api/views"):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            try:
+                limit = int(qs.get("limit", ["8"])[0])
+            except ValueError:
+                limit = 8
+            force = qs.get("force", ["0"])[0] == "1"
+            try:
+                import views_feed
+                items = views_feed.get_views(limit=limit, force=force)
+                self.send_json(200, {"ok": True,
+                                     "updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                     "count": len(items), "items": items})
+            except Exception as e:
+                self.send_json(500, {"ok": False, "message": str(e)})
         elif self.path.startswith("/api/news"):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
