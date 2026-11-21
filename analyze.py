@@ -843,6 +843,167 @@ def compute_merrill_lynch(growth_ts_list, infl_ts_list, g_ids=None, i_ids=None):
 
 
 # ---------------------------------------------------------------------------
+# Merrill Lynch — 多方法计算（绝对阈值 / Z-score / 6个月动量 / 荣枯扩散）
+# ---------------------------------------------------------------------------
+def _ml_classify(x, y):
+    if x >= 0 and y >= 0:
+        return "过热期", "商品 > 股票 > 现金 > 债券", \
+               "通胀上行+增长强劲，大宗商品表现最佳，央行可能收紧货币政策"
+    if x >= 0 and y < 0:
+        return "复苏期", "股票 > 债券 > 现金 > 商品", \
+               "增长回暖+通胀温和，股票最优配置窗口，周期性行业领先"
+    if x < 0 and y >= 0:
+        return "滞胀期", "现金 > 商品 > 债券 > 股票", \
+               "增长放缓+通胀高企，现金为王，防御性资产优先"
+    return "衰退期", "债券 > 现金 > 股票 > 商品", \
+           "增长疲弱+通缩压力，债券表现最佳，央行可能降息刺激经济"
+
+
+def compute_merrill_lynch_methods(growth_ids, inflation_ids, ind_values, ind_dates,
+                                  ml_threshold):
+    """用四种方法各自计算美林时钟的 X/Y 坐标与象限，供前端切换对比。
+    所有方法共用同一套增长/通胀指标与权重，仅打分方式不同。"""
+    G_W = {"industrial_production": 0.4, "pmi_manufacturing": 0.3, "gdp_growth": 0.3}
+    I_W = {"cpi": 0.7, "ppi": 0.3}
+    THRESH = {
+        "pmi_manufacturing": (50.0, 2.0),
+        "industrial_production": (6.0, 2.0),
+        "gdp_growth": (5.5, 2.5),
+        "cpi": (2.0, 1.0),
+        "ppi": (0.0, 4.0),
+    }
+
+    def _monthly(ind_id):
+        vals = ind_values.get(ind_id)
+        dates = ind_dates.get(ind_id)
+        if vals is None or dates is None or len(vals) == 0:
+            return None
+        s = pd.Series(pd.to_numeric(vals, errors="coerce").values,
+                      index=pd.to_datetime(pd.Series(dates).values)).dropna()
+        if s.empty:
+            return None
+        return s.resample("ME").last().dropna()
+
+    def _w(ind_id, is_growth):
+        w = (G_W if is_growth else I_W).get(ind_id)
+        return w if w is not None else 0.33
+
+    def _clamp(v, lo, hi):
+        return max(lo, min(hi, v))
+
+    # 各指标月度序列
+    g_ms = {gid: _monthly(gid) for gid in growth_ids}
+    i_ms = {iid: _monthly(iid) for iid in inflation_ids}
+    if any(v is None for v in g_ms.values()) or any(v is None for v in i_ms.values()):
+        return {}
+
+    def _method(name, note, score_of):
+        """score_of(ind_id, series) -> 与该序列同索引的打分 Series"""
+        def weighted_score(ms_dict, is_growth):
+            scores, weights = [], []
+            for ind_id, ms in ms_dict.items():
+                sc = score_of(ind_id, ms)
+                if sc is None:
+                    continue
+                scores.append(sc)
+                weights.append(_w(ind_id, is_growth))
+            if not scores:
+                return None
+            df = pd.concat(scores, axis=1)
+            # 按权重合成
+            wsum = sum(weights)
+            comp = sum(df.iloc[:, k] * weights[k] / wsum for k in range(df.shape[1]))
+            return comp.dropna()
+
+        g_comp = weighted_score(g_ms, True)
+        i_comp = weighted_score(i_ms, False)
+        if g_comp is None or i_comp is None or g_comp.empty or i_comp.empty:
+            return None
+        common = g_comp.index.intersection(i_comp.index)
+        if len(common) == 0:
+            return None
+        g_comp, i_comp = g_comp.loc[common], i_comp.loc[common]
+        x = _clamp(float(g_comp.iloc[-1]), -2.0, 2.0)
+        y = _clamp(float(i_comp.iloc[-1]), -2.0, 2.0)
+        quad, alloc, adv = _ml_classify(x, y)
+        trajectory = [{"date": d.strftime("%Y-%m"), "x": round(_clamp(float(g_comp.loc[d]), -2.0, 2.0), 4),
+                       "y": round(_clamp(float(i_comp.loc[d]), -2.0, 2.0), 4)}
+                      for d in common[-36:]]
+        g_parts = {gid: round(float(score_of(gid, g_ms[gid]).iloc[-1]), 3)
+                   for gid in growth_ids if score_of(gid, g_ms[gid]) is not None}
+        i_parts = {iid: round(float(score_of(iid, i_ms[iid]).iloc[-1]), 3)
+                   for iid in inflation_ids if score_of(iid, i_ms[iid]) is not None}
+        return {"x": round(x, 4), "y": round(y, 4), "quadrant": quad,
+                "asset_allocation": alloc, "advice": adv, "trajectory": trajectory,
+                "g_parts": g_parts, "i_parts": i_parts,
+                "method_label": name, "method_note": note}
+
+    def _z(s):
+        mean = s.rolling(36, min_periods=12).mean()
+        std = s.rolling(36, min_periods=12).std()
+        return ((s - mean) / std).replace([float("inf"), float("-inf")], 0.0)
+
+    def _zscore_score(ind_id, s):
+        return _z(s).clip(-2.5, 2.5)
+
+    def _momentum_score(ind_id, s):
+        m = s.diff(6).dropna()
+        if len(m) < 12:
+            return None
+        mean, std = m.mean(), m.std()
+        if std == 0:
+            return None
+        z = ((m - mean) / std).replace([float("inf"), float("-inf")], 0.0)
+        return z.clip(-2.5, 2.5)
+
+    def _threshold_score(ind_id, s):
+        neutral, width = THRESH.get(ind_id, (0.0, 1.0))
+        return ((s - neutral) / width).clip(-2.0, 2.0)
+
+    def _diffusion_score(ind_id, s):
+        neutral = THRESH.get(ind_id, (0.0, 1.0))[0]
+        return pd.Series([1.0 if v > neutral else (-1.0 if v < neutral else 0.0)
+                          for v in s.values], index=s.index)
+
+    methods = {}
+    # 1. 绝对阈值法（复用已有结果）
+    methods["threshold"] = {
+        **ml_threshold,
+        "method_label": "绝对阈值法",
+        "method_note": "以固定中性锚（PMI 50、CPI 2% 等）为基准，得分 =（最新值 − 中性锚）÷ 刻度，截断在 ±2。",
+    }
+    # 2. Z-score 标准化法
+    m = _method("Z-score 标准化法",
+                "以近 36 个月滚动均值/标准差为基准，得分 =（最新值 − 均值）÷ 标准差，反映相对历史的位置。",
+                _zscore_score)
+    if m:
+        methods["zscore"] = m
+    # 3. 6 个月动量法
+    m = _method("6个月动量法",
+                "以 6 个月变化量（加速度）为信号，再做全样本标准化，捕捉拐点而非绝对水平。",
+                _momentum_score)
+    if m:
+        methods["momentum"] = m
+    # 4. 荣枯扩散法
+    m = _method("荣枯扩散法",
+                "只按是否越过中性线计 +1/-1/0，再按权重合成，只看方向不看幅度。",
+                _diffusion_score)
+    if m:
+        methods["diffusion"] = m
+
+    for k, mm in methods.items():
+        mm["method_key"] = k
+        mm["growth_indicators"] = growth_ids
+        mm["inflation_indicators"] = inflation_ids
+        mm["growth_latest"] = [round(float(g_ms[gid].iloc[-1]), 2) for gid in growth_ids]
+        mm["inflation_latest"] = [round(float(i_ms[iid].iloc[-1]), 2) for iid in inflation_ids]
+        mm["g_weights"] = G_W
+        mm["i_weights"] = I_W
+        mm["thresholds"] = {kk: {"neutral": v[0], "width": v[1]} for kk, v in THRESH.items()}
+    return methods
+
+
+# ---------------------------------------------------------------------------
 # Pring Six-Stage
 # ---------------------------------------------------------------------------
 def compute_pring_stage(bond_dir, stock_dir, commodity_dir):
@@ -1077,6 +1238,10 @@ def run_analysis():
         "growth_latest": [ind_data.get(gid, {}).get("latest_value") for gid in growth_ids],
         "inflation_latest": [ind_data.get(iid, {}).get("latest_value") for iid in inflation_ids],
     }
+
+    # 四种方法的结果，供前端切换对比
+    results["merrill_lynch_methods"] = compute_merrill_lynch_methods(
+        growth_ids, inflation_ids, ind_values, ind_dates, results["merrill_lynch"])
 
     # === Pring Six-Stage ===
     pring_cfg = config.get("pring", {})
