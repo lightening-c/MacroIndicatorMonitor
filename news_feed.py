@@ -1,68 +1,160 @@
 """
 宏观数据跟踪 — 实时宏观快讯
-从东方财富全球快讯中筛选宏观相关条目，带 5 分钟缓存。
+聚合：东方财富全球快讯、新华网、人民日报(人民网)、求是网、证监会
+带 5 分钟缓存。所有来源失败时返回上一次缓存。
 """
+import re
 import time
+from datetime import datetime
+import urllib.request
+from urllib.parse import urljoin
+
+UA = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+}
 
 KEYWORDS = [
     "宏观", "GDP", "PMI", "社融", "信贷", "CPI", "PPI", "通胀", "通缩",
     "降准", "降息", "央行", "货币政策", "财政", "专项债", "国债", "国债收益率",
-    "汇率", "人民币中间价", "出口", "进口", "外贸", "关税",
+    "汇率", "人民币", "出口", "进口", "外贸", "关税",
     "房地产", "楼市", "地产", "基建", "失业", "就业率",
     "美联储", "美债", "国常会", "发改委", "统计局", "财政部", "证监会",
-    "国务院", "国新办", "LPR",
+    "国务院", "国新办", "LPR", "监管", "上市公司", "退市", "IPO", "基金",
+    "期货", "债券", "利率", "资本市场", "金融", "经济", "消费", "投资",
+    "发展", "改革", "政策", "市场", "产业", "企业", "开放", "增长", "稳",
+    "价格", "收入", "就业", "贸易", "制造业", "服务业", "进出口",
 ]
-
-CN_KEYWORDS = [
-    "中国", "国内", "我国", "央行", "国常会", "发改委", "统计局", "财政部",
-    "证监会", "国务院", "人民币", "A股", "沪指", "出口", "进口", "外贸",
-    "地产", "房地产", "楼市", "社融", "PMI", "CPI", "PPI", "专项债",
-    "LPR", "降准", "降息", "基建",
-]
-
-GLOBAL_KEYWORDS = ["美联储", "美债", "美国国债", "欧元区", "日本央行", "美元"]
 
 _cache = {"ts": 0.0, "items": []}
 _TTL = 300
 
 
+def _get(url, timeout=15):
+    req = urllib.request.Request(url, headers=UA)
+    return urllib.request.urlopen(req, timeout=timeout).read().decode("utf-8", "ignore")
+
+
+def _norm_time(s):
+    s = (s or "").strip()
+    if not s:
+        return ""
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d",
+                "%Y/%m/%d %H:%M", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            continue
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})", s)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)} 00:00:00"
+    return ""
+
+
+def _match(text):
+    return any(k in text for k in KEYWORDS)
+
+
+def fetch_eastmoney():
+    import akshare as ak
+    df = ak.stock_news_global_em()
+    out = []
+    for _, row in df.iterrows():
+        title = str(row.get("标题") or "").strip()
+        summary = str(row.get("摘要") or "").strip()
+        if not title or not _match(title + summary):
+            continue
+        out.append({"title": title, "summary": summary[:160],
+                    "time": _norm_time(str(row.get("发布时间") or "")),
+                    "link": str(row.get("链接") or ""), "source": "东方财富"})
+    return out
+
+
+def _scrape_links(url, pattern, source, time_from_url=True):
+    """通用：抓取页面内符合 pattern 的 (链接, 标题)，时间从 URL 里的 YYYYMMDD 解析。"""
+    html = _get(url)
+    out, seen = [], set()
+    for href, title in re.findall(r'<a[^>]+href="([^"]+)"[^>]*>([^<]{5,80})</a>', html):
+        m = re.search(pattern, href)
+        if not m:
+            continue
+        title = title.strip()
+        if not title or title in seen or not _match(title):
+            continue
+        seen.add(title)
+        t = ""
+        if time_from_url:
+            g = re.search(r"20(\d{2})[/-]?(\d{2})[/-]?(\d{2})", href)
+            if g:
+                y, mo, d = "20" + g.group(1), g.group(2), g.group(3)
+                t = f"{y}-{mo}-{d} 00:00:00"
+        if href.startswith("//"):
+            href = "https:" + href
+        else:
+            href = urljoin(url, href)
+        out.append({"title": title, "summary": "", "time": t,
+                    "link": href, "source": source})
+    return out
+
+
+def fetch_xinhua():
+    return _scrape_links("https://www.news.cn/", r"/20\d{6}/", "新华网")
+
+
+def fetch_people():
+    return _scrape_links("http://www.people.com.cn/", r"/n1/20\d{2}/\d{4}/", "人民日报")
+
+
+def fetch_qstheory():
+    return _scrape_links("https://www.qstheory.cn/economy/index.htm",
+                         r"/20\d{6}/", "求是")
+
+
+def fetch_csrc():
+    html = _get("https://www.csrc.gov.cn/csrc/index.shtml")
+    out, seen = [], set()
+    year = datetime.now().year
+    for href, title, md in re.findall(
+            r'<a[^>]+href="(/csrc/[^"]+)"[^>]*>([^<]{5,80})</a>\s*<span class="time">\s*(\d{2}-\d{2})',
+            html, re.S):
+        title = title.strip()
+        if not title or title in seen:
+            continue
+        seen.add(title)
+        if "行政复议" in title:
+            continue
+        mon, day = md.split("-")
+        y = year if int(mon) <= datetime.now().month else year - 1
+        out.append({"title": title, "summary": "",
+                    "time": f"{y}-{mon}-{day} 00:00:00",
+                    "link": "https://www.csrc.gov.cn" + href, "source": "证监会"})
+    return out
+
+
 def get_macro_news(limit=30, force=False):
-    """返回 [{title, summary, time, link}]，按时间倒序；失败时返回缓存。"""
     now = time.time()
     if not force and _cache["items"] and now - _cache["ts"] < _TTL:
         return _cache["items"][:limit]
 
-    try:
-        import akshare as ak
-        df = ak.stock_news_global_em()
-    except Exception:
-        return _cache["items"][:limit]
-
-    items, seen = [], set()
-    for _, row in df.iterrows():
-        title = str(row.get("标题") or "").strip()
-        summary = str(row.get("摘要") or "").strip()
-        text = title + summary
-        if not title or not any(k in text for k in KEYWORDS):
+    items = []
+    # 每个来源设上限，保证官方媒体不会被快讯流淹没
+    sources = [(fetch_eastmoney, 15), (fetch_xinhua, 10), (fetch_people, 10),
+               (fetch_qstheory, 10), (fetch_csrc, 12)]
+    for fn, cap in sources:
+        try:
+            items.extend(fn()[:cap])
+        except Exception:
             continue
-        key = title[:40]
+
+    seen, uniq = set(), []
+    for it in items:
+        key = it["title"][:40]
         if key in seen:
             continue
         seen.add(key)
-        score = 2 * sum(1 for k in CN_KEYWORDS if k in text) \
-            + sum(1 for k in GLOBAL_KEYWORDS if k in text)
-        items.append({
-            "title": title,
-            "summary": summary[:160],
-            "time": str(row.get("发布时间") or ""),
-            "link": str(row.get("链接") or ""),
-            "_score": score,
-        })
-        if len(items) >= 300:
-            break
+        uniq.append(it)
+    uniq.sort(key=lambda x: x.get("time") or "", reverse=True)
 
-    items.sort(key=lambda x: (x["_score"], x["time"]), reverse=True)
-    for it in items:
-        it.pop("_score", None)
-    _cache.update(ts=now, items=items)
-    return items[:limit]
+    if uniq:
+        _cache.update(ts=now, items=uniq)
+    return uniq[:limit]
