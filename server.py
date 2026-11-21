@@ -7,6 +7,7 @@ import subprocess
 import sys
 import os
 import json
+import re
 import socket
 import threading
 from datetime import datetime
@@ -120,6 +121,262 @@ def fetch_report_abstract(code, title=None):
     return out
 
 STATUS = {"running": False, "last_update": None, "last_result": None, "current_step": None}
+
+# ---------------------------------------------------------------------------
+# 外部文章抓取（内容摘要）
+# ---------------------------------------------------------------------------
+ARTICLE_HOSTS = (
+    "eastmoney.com", "dfcfw.com", "stockstar.com", "stcn.com", "gelonghui.com",
+    "163.com", "sina.com.cn", "hexun.com", "news.cn", "xinhuanet.com",
+    "people.com.cn", "qstheory.cn", "stats.gov.cn", "ndrc.gov.cn", "gov.cn",
+    "csrc.gov.cn", "yicai.com", "caixin.com", "ce.cn",
+)
+ARTICLE_CACHE = {}
+ARTICLE_TTL = 600
+ARTICLE_JUNK = re.compile(
+    r"^(责任编辑|编辑|来源[:：]|免责声明|风险提示|特别提示|版权|版权所有|"
+    r"扫描|扫码|点击|关注|原标题|相关阅读|延伸阅读|上一篇|下一篇|"
+    r"返回首页|分享到|字体[:：]|声明[:：])")
+
+
+def _host_of(url):
+    from urllib.parse import urlparse
+    return (urlparse(url).hostname or "").lower()
+
+
+def _validate_article_url(url):
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+    p = urlparse(url or "")
+    if p.scheme not in ("http", "https"):
+        raise ValueError("仅支持 http/https 链接")
+    if p.username or p.password:
+        raise ValueError("链接不合法")
+    host = (p.hostname or "").lower().rstrip(".")
+    if not host:
+        raise ValueError("链接缺少域名")
+    port = p.port or (443 if p.scheme == "https" else 80)
+    if port not in (80, 443):
+        raise ValueError("仅支持 80/443 端口")
+    if not any(host == d or host.endswith("." + d) for d in ARTICLE_HOSTS):
+        raise ValueError("该来源暂不支持抓取，请打开原文查看")
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except Exception:
+        raise ValueError("域名解析失败")
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except Exception:
+            continue
+        if not ip.is_global:
+            raise ValueError("目标地址不允许访问")
+    return url
+
+
+def _decode_html(data, ctype):
+    m = re.search(r"charset=([\w-]+)", ctype or "", re.I)
+    encs = [m.group(1)] if m else []
+    head = data[:4000].decode("ascii", "ignore")
+    m2 = re.search(r"""charset=["']?([\w-]+)""", head, re.I)
+    if m2:
+        encs.append(m2.group(1))
+    encs += ["utf-8", "gb18030"]
+    for enc in encs:
+        try:
+            return data.decode(enc)
+        except Exception:
+            continue
+    return data.decode("utf-8", "ignore")
+
+
+def _meta_content(soup, names):
+    for n in names:
+        tag = soup.find("meta", attrs={"property": n}) or soup.find("meta", attrs={"name": n})
+        if tag and tag.get("content"):
+            return " ".join(tag["content"].split())
+    return ""
+
+
+def _block_texts(el):
+    ps = [" ".join(p.get_text(" ", strip=True).split()) for p in el.find_all("p")]
+    ps = [x for x in ps if len(x) >= 12]
+    if len(ps) >= 3 and sum(len(x) for x in ps) >= 180:
+        return ps
+    lines = [" ".join(x.split()) for x in el.get_text("\n", strip=True).split("\n")]
+    lines = [x for x in lines if len(x) >= 12]
+    if sum(len(x) for x in lines) > sum(len(x) for x in ps) + 60:
+        return lines
+    if len(ps) >= 3:
+        return ps
+    leaf = []
+    for d in el.find_all("div"):
+        if d.find(["div", "p", "table", "ul", "ol"]):
+            continue
+        s = " ".join(d.get_text(" ", strip=True).split())
+        if len(s) >= 12:
+            leaf.append(s)
+    return ps + leaf
+
+
+def _clean_article_lines(lines):
+    out, seen = [], set()
+    for s in lines:
+        s = (s or "").replace("u200b", "").replace("​", "")
+        s = " ".join(s.split())
+        if len(s) < 10 or ARTICLE_JUNK.search(s):
+            continue
+        key = re.sub(r"[^一-龥A-Za-z0-9]", "", s)[:60]
+        if s in seen or (key and key in seen):
+            continue
+        seen.add(s)
+        seen.add(key)
+        out.append(s)
+    return out
+
+
+def _extract_article(html):
+    from bs4 import BeautifulSoup
+    try:
+        soup = BeautifulSoup(html, "html5lib")
+    except Exception:
+        soup = BeautifulSoup(html, "html.parser")
+    title = _meta_content(soup, ("og:title", "twitter:title"))
+    if not title and soup.title:
+        title = " ".join(soup.title.get_text(" ", strip=True).split())
+    date = _meta_content(soup, ("article:published_time", "og:release_date",
+                                "pubdate", "publishdate", "date", "weibo:article:create_at",
+                                "firstpublishedtime", "lastmodifiedtime"))
+    if not date:
+        import json as _json
+        for sc in soup.find_all("script", attrs={"type": "application/ld+json"}):
+            try:
+                obj = _json.loads(sc.string or sc.get_text() or "")
+            except Exception:
+                continue
+            items = obj if isinstance(obj, list) else [obj]
+            for o in items:
+                if isinstance(o, dict) and o.get("datePublished"):
+                    date = str(o["datePublished"])
+                    break
+            if date:
+                break
+    for tag in soup(["script", "style", "noscript", "svg", "form", "iframe",
+                     "header", "footer", "nav", "aside"]):
+        tag.decompose()
+    selectors = [
+        "article", "[itemprop=articleBody]", "#js_content", "#Content", "#content",
+        "#articleContent", "#artibody", "#article_content", "#news_content",
+        "#detail-content", ".article-content", ".article_content", ".articleCont",
+        ".post_content", ".content_area", ".detail-content", ".main-content",
+        ".news-content", ".TRS_Editor", ".rich_media_content", ".article",
+        ".article-body", ".artical_content", ".txt_con", ".detail_text", ".content",
+    ]
+    best, best_score, seen = [], 0, set()
+    for sel in selectors:
+        try:
+            els = soup.select(sel)
+        except Exception:
+            els = []
+        for el in els:
+            if id(el) in seen:
+                continue
+            seen.add(id(el))
+            ps = _block_texts(el)
+            if not ps:
+                continue
+            plen = sum(len(x) for x in ps)
+            if plen < 80:
+                continue
+            link_len = sum(len(a.get_text(strip=True)) for a in el.find_all("a"))
+            score = plen - link_len * 2
+            if plen / max(1, len(ps)) < 16:
+                score -= 200
+            if score > best_score:
+                best_score, best = score, ps
+    if best_score < 300:
+        for el in soup.find_all(["article", "section", "div"]):
+            cls = " ".join(el.get("class") or []) + " " + (el.get("id") or "")
+            if re.search(r"nav|menu|foot|head|side|comment|share|related|list", cls, re.I):
+                continue
+            txt = el.get_text(" ", strip=True)
+            if not (150 <= len(txt) <= 30000):
+                continue
+            ps = _block_texts(el)
+            if not ps:
+                continue
+            plen = sum(len(x) for x in ps)
+            link_len = sum(len(a.get_text(strip=True)) for a in el.find_all("a"))
+            score = plen - link_len * 2
+            if plen / max(1, len(ps)) < 16:
+                score -= 200
+            if score > best_score:
+                best_score, best = score, ps
+    if best_score < 120:
+        alt = _block_texts(soup.body or soup)
+        if sum(len(x) for x in alt) > best_score:
+            best = alt
+    if not best:
+        text = (soup.body or soup).get_text("\n", strip=True)
+        best = [x for x in text.split("\n") if len(x) >= 12]
+    lines = _clean_article_lines(best)
+    if not date:
+        probe = " ".join(lines[:3])
+        m = re.search(r"(20\d{2})[-/年.](\d{1,2})[-/月.](\d{1,2})", probe)
+        if m:
+            date = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+    if date:
+        m = re.search(r"(20\d{2})[-/年.](\d{1,2})[-/月.](\d{1,2})", str(date))
+        if m:
+            date = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+    text = "\n".join(lines)[:12000]
+    return {"title": title[:160], "text": text,
+            "date": (date or "")[:10], "paragraphs": len(lines)}
+
+
+def _date_from_url(url):
+    m = re.search(r"(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])", url or "")
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+    return ""
+
+
+def fetch_article(url, force=False):
+    import time
+    import urllib.request
+    url = _validate_article_url(url)
+    now = time.time()
+    hit = ARTICLE_CACHE.get(url)
+    if hit and not force and now - hit[0] < ARTICLE_TTL:
+        return hit[1]
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/120 Safari/537.36",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+    })
+    with urllib.request.urlopen(req, timeout=20) as r:
+        final = r.geturl()
+        _validate_article_url(final)
+        ctype = (r.headers.get("Content-Type") or "").lower()
+        data = r.read(3 * 1024 * 1024)
+    if "pdf" in ctype or final.lower().split("?")[0].endswith(".pdf"):
+        import io
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(data))
+        raw = "\n".join((p.extract_text() or "") for p in reader.pages[:3])
+        lines = _clean_article_lines(raw.split("\n"))
+        out = {"title": "", "text": "\n".join(lines)[:12000],
+               "date": "", "paragraphs": len(lines)}
+    else:
+        out = _extract_article(_decode_html(data, ctype))
+    out["site"] = _host_of(final)
+    if not out.get("date"):
+        out["date"] = _date_from_url(final)
+    if not out.get("text"):
+        raise ValueError("未能从页面提取到正文，请打开原文查看")
+    ARTICLE_CACHE[url] = (now, out)
+    return out
 
 if os.path.exists(UPDATE_LOG):
     try:
@@ -286,6 +543,18 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(200, {"ok": True, "text": fetch_report_abstract(code, title)})
             except ImportError:
                 self.send_json(500, {"ok": False, "message": "缺少 pypdf，请先安装"})
+            except Exception as e:
+                self.send_json(500, {"ok": False, "message": f"抓取失败：{e}"})
+        elif self.path.startswith("/api/article"):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            url = (qs.get("url", [""])[0] or "").strip()
+            force = qs.get("force", ["0"])[0] == "1"
+            try:
+                data = fetch_article(url, force=force)
+                self.send_json(200, dict(ok=True, **data))
+            except ValueError as e:
+                self.send_json(400, {"ok": False, "message": str(e)})
             except Exception as e:
                 self.send_json(500, {"ok": False, "message": f"抓取失败：{e}"})
         elif self.path.startswith("/api/views"):
