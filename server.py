@@ -14,6 +14,91 @@ from datetime import datetime
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PYTHON = sys.executable
 UPDATE_LOG = os.path.join(BASE_DIR, "data", "update_log.json")
+MANUAL_VIEWS = os.path.join(BASE_DIR, "assets", "manual_views.json")
+
+
+def load_manual_views():
+    if not os.path.exists(MANUAL_VIEWS):
+        return []
+    try:
+        with open(MANUAL_VIEWS, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def save_manual_views(items):
+    os.makedirs(os.path.dirname(MANUAL_VIEWS), exist_ok=True)
+    tmp = MANUAL_VIEWS + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, MANUAL_VIEWS)
+
+
+ABSTRACT_CACHE = {}
+
+
+def _clean_abstract(text, title=None, limit=180):
+    import re
+    t = re.sub(r"\s+", " ", text or "").strip()
+    cut = None
+    head = t[:400]
+    for mk in ("核心观点", "基本内容", "主要观点", "摘要", "要点"):
+        i = head.find(mk)
+        if i >= 0:
+            cut = i + len(mk)
+            break
+    if cut is None and title:
+        core = re.sub(r"\s+", "", title)
+        for n in (8, 6, 5):
+            if len(core) < n:
+                continue
+            pat = r"\s*".join(re.escape(c) for c in core[-n:])
+            m = re.search(pat, t)
+            if m:
+                cut = m.end()
+                break
+    if cut is not None:
+        t = t[cut:]
+    else:
+        last = None
+        for m in re.finditer(r"\S+@\S+", head):
+            last = m
+        if last:
+            t = t[last.end():]
+    t = re.sub(r"\S+@\S+", " ", t)
+    t = re.sub(r"（执业[^）]*）", " ", t)
+    for junk in ("敬请参阅最后一页特别声明", "请务必阅读正文之后的信息披露",
+                 "敬请阅读末页", "证券研究报告", "分析师：", "联系人：", "宏观经济组"):
+        t = t.replace(junk, " ")
+    t = re.sub(r"\s+", " ", t).strip(" ：:，,。、-")
+    if len(t) > limit:
+        cut2 = t[:limit]
+        p = max(cut2.rfind("。"), cut2.rfind("；"))
+        t = cut2[:p + 1] if p > 60 else cut2 + "…"
+    return t
+
+
+def fetch_report_abstract(code, title=None):
+    if code in ABSTRACT_CACHE:
+        return ABSTRACT_CACHE[code]
+    import io
+    import urllib.request
+    from pypdf import PdfReader
+    url = f"https://pdf.dfcfw.com/pdf/H3_{code}_1.pdf"
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/120 Safari/537.36",
+        "Referer": "https://data.eastmoney.com/report/",
+    })
+    with urllib.request.urlopen(req, timeout=25) as r:
+        data = r.read(10 * 1024 * 1024)
+    reader = PdfReader(io.BytesIO(data))
+    text = reader.pages[0].extract_text() or ""
+    out = _clean_abstract(text, title)
+    ABSTRACT_CACHE[code] = out
+    return out
 
 STATUS = {"running": False, "last_update": None, "last_result": None, "current_step": None}
 
@@ -78,12 +163,64 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             t = threading.Thread(target=run_update, daemon=True)
             t.start()
             self.send_json(200, {"ok": True, "message": "更新已启动"})
+        elif self.path == "/api/manual-views":
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+                body = json.loads(raw or "{}")
+            except Exception as e:
+                self.send_json(400, {"ok": False, "message": f"请求体解析失败：{e}"})
+                return
+            item = {
+                "org": (body.get("org") or "").strip(),
+                "date": (body.get("date") or "").strip(),
+                "topic": (body.get("topic") or "").strip(),
+                "stance": (body.get("stance") or "部分一致").strip(),
+                "view": (body.get("view") or "").strip(),
+                "note": (body.get("note") or "").strip(),
+                "cause": (body.get("cause") or "").strip(),
+                "action": (body.get("action") or "").strip(),
+                "link": (body.get("link") or "").strip(),
+            }
+            if not (item["org"] and item["date"] and item["topic"]):
+                self.send_json(400, {"ok": False, "message": "机构、日期、标题不能为空"})
+                return
+            if not item["note"]:
+                self.send_json(400, {"ok": False, "message": "请填写对照结论"})
+                return
+            key = f'{item["org"]}|{item["date"]}|{item["topic"]}'
+            items = [x for x in load_manual_views()
+                     if f'{x.get("org")}|{x.get("date")}|{x.get("topic")}' != key]
+            items.insert(0, item)
+            try:
+                save_manual_views(items)
+            except Exception as e:
+                self.send_json(500, {"ok": False, "message": f"保存失败：{e}"})
+                return
+            self.send_json(200, {"ok": True, "item": item})
         else:
             self.send_json(404, {"ok": False, "message": "Not Found"})
 
     def do_GET(self):
         if self.path == "/api/status":
             self.send_json(200, {"ok": True, "running": STATUS["running"], "current_step": STATUS["current_step"], "last_update": STATUS["last_update"], "last_result": STATUS["last_result"]})
+        elif self.path == "/api/manual-views":
+            self.send_json(200, {"ok": True, "items": load_manual_views()})
+        elif self.path.startswith("/api/report-abstract"):
+            from urllib.parse import urlparse, parse_qs
+            import re as _re
+            qs = parse_qs(urlparse(self.path).query)
+            code = (qs.get("code", [""])[0] or "").strip()
+            title = (qs.get("title", [""])[0] or "").strip() or None
+            if not _re.fullmatch(r"[A-Za-z]{2}\d{8,20}", code):
+                self.send_json(400, {"ok": False, "message": "研报编码不合法"})
+                return
+            try:
+                self.send_json(200, {"ok": True, "text": fetch_report_abstract(code, title)})
+            except ImportError:
+                self.send_json(500, {"ok": False, "message": "缺少 pypdf，请先安装"})
+            except Exception as e:
+                self.send_json(500, {"ok": False, "message": f"抓取失败：{e}"})
         elif self.path.startswith("/api/views"):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
