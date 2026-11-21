@@ -527,14 +527,14 @@ function buildPeerCompare(D){var acc=D.accounting||{},ML=D.merrill_lynch||{},PR=
 function find(id){var r=null;['leading','coincident','lagging'].forEach(function(c){(D.indicators[c]||[]).forEach(function(i){if(i.id===id)r=i})});return r}
 function sMap(id){var ind=find(id);var m={};if(ind&&ind.ts_data){ind.ts_data.forEach(function(p){if(p.value!=null)m[p.date.slice(0,7)]=p.value})}return m}
 function zOf(id){var m=sMap(id),ks=Object.keys(m).sort();if(ks.length<12)return null;var use=ks.slice(-36),vals=use.map(function(k){return m[k]});var mean=vals.reduce(function(a,b){return a+b},0)/vals.length;var sd=Math.sqrt(vals.reduce(function(a,b){return a+(b-mean)*(b-mean)},0)/vals.length);if(!sd)return null;return (vals[vals.length-1]-mean)/sd}
-function avgZ(ids){var zs=ids.map(zOf).filter(function(v){return v!=null});if(!zs.length)return null;return zs.reduce(function(a,b){return a+b},0)/zs.length}
+function avgZ(ids,wts){var pairs=ids.map(function(id,i){return {z:zOf(id),w:wts?wts[i]:1}}).filter(function(p){return p.z!=null});var tw=pairs.reduce(function(a,p){return a+p.w},0);if(!tw)return null;return pairs.reduce(function(a,p){return a+p.z*p.w},0)/tw}
 function f2(v){return v==null?'--':(v>0?'+':'')+Number(v).toFixed(2)}
 function rocOf(id,n){var m=sMap(id),ks=Object.keys(m).sort();if(ks.length<=n)return null;var a=m[ks[ks.length-1]],b=m[ks[ks.length-1-n]];if(a==null||b==null||!b)return null;return (a-b)/Math.abs(b)*100}
-var gz=avgZ(['industrial_production','pmi_manufacturing','gdp_growth']);
-var iz=avgZ(['cpi','ppi']);
+var gz=avgZ(['industrial_production','pmi_manufacturing','gdp_growth'],[0.4,0.3,0.3]);
+var iz=avgZ(['cpi','ppi'],[0.7,0.3]);
 var mq=gz==null||iz==null?'--':(gz>=0?(iz>=0?'过热期':'复苏期'):(iz>=0?'滞胀期':'衰退期'));
 var same=(mq!=='--'&&ML.quadrant&&mq===ML.quadrant);
-var mlReason=same?'两套方法结论一致：增长与通胀的相对位置没有落在阈值边界附近，结论稳健。':'差异来自坐标构造——本面板用绝对阈值打分（PMI 以 50 为中性、CPI 以 2% 为中性），市场口径用近 36 个月滚动 z 分数；指标处在长期均值附近时，两种方法容易给出不同象限。';
+var mlReason=same?'两套方法结论一致：增长与通胀的相对位置没有落在阈值边界附近，结论稳健。':'差异仅剩中性锚不同——两者权重已对齐（CPI:PPI=7:3、增长 0.4/0.3/0.3）；本面板用固定锚（PMI 50、CPI 2%），市场口径用近 36 个月滚动均值作锚。CPI 0.7% 相对 2% 目标偏低、相对近三年均值 0.32% 却偏高，这是通胀轴翻号的核心原因。';
 var inv=find('inventory_growth'),pf=find('industrial_profit');
 var invCh=inv&&inv.mom_change!=null?inv.mom_change:null;
 var pfCh=pf&&pf.mom_change!=null?pf.mom_change:null;
