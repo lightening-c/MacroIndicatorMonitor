@@ -627,7 +627,7 @@ var axis=cssVar('--line-strong')||'#94a3b8',lab=cssVar('--text-dim')||'#475569';
 chart.setOption({backgroundColor:'transparent',tooltip:{formatter:function(p){return p.name?p.name+'<br/>增长 '+p.value[0]+'，通胀 '+p.value[1]:''}},grid:{left:52,right:28,top:34,bottom:42},xAxis:{type:'value',min:-2.2,max:2.2,name:'增长 X',nameLocation:'middle',nameGap:26,nameTextStyle:{color:lab},axisLine:{lineStyle:{color:axis}},splitLine:{lineStyle:{color:cssVar('--line-faint')||'#eef2f7'}},axisLabel:{color:lab,fontSize:12}},yAxis:{type:'value',min:-2.2,max:2.2,name:'通胀 Y',nameTextStyle:{color:lab},axisLine:{lineStyle:{color:axis}},splitLine:{lineStyle:{color:cssVar('--line-faint')||'#eef2f7'}},axisLabel:{color:lab,fontSize:12}},series:[
 {type:'line',data:pts.map(function(p){return [p.value[0],p.value[1]]}),showSymbol:false,silent:true,lineStyle:{color:cssVar('--line-strong')||'#94a3b8',width:1.4,opacity:0.6}},
 {type:'scatter',data:pts,symbolSize:6},
-{type:'effectScatter',data:[{value:[ml.x,ml.y],name:'当前'}],symbolSize:11,itemStyle:{color:'#d97706'},rippleEffect:{scale:4},label:{show:true,formatter:'当前 ('+fmtNum(ml.x,2)+', '+fmtNum(ml.y,2)+')',position:'top',color:'#b45309',fontSize:12,fontWeight:600}},
+{type:'effectScatter',data:[{value:[ml.x,ml.y],name:'当前'}],symbolSize:6,itemStyle:{color:'#dc2626'},rippleEffect:{scale:2.5,brushType:'stroke'},label:{show:true,formatter:'当前 ('+fmtNum(ml.x,2)+', '+fmtNum(ml.y,2)+')',position:'top',color:'#dc2626',fontSize:12,fontWeight:700}},
 {type:'scatter',silent:true,symbolSize:0,data:[
 {value:[1.25,1.25],label:{show:true,formatter:'过热期',color:'#b45309',fontSize:13,fontWeight:600}},
 {value:[1.25,-1.25],label:{show:true,formatter:'复苏期',color:'#0b7fab',fontSize:13,fontWeight:600}},
