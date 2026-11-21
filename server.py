@@ -15,25 +15,42 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PYTHON = sys.executable
 UPDATE_LOG = os.path.join(BASE_DIR, "data", "update_log.json")
 MANUAL_VIEWS = os.path.join(BASE_DIR, "assets", "manual_views.json")
+DISMISSED_VIEWS = os.path.join(BASE_DIR, "assets", "dismissed_views.json")
 
 
-def load_manual_views():
-    if not os.path.exists(MANUAL_VIEWS):
+def _load_list(path):
+    if not os.path.exists(path):
         return []
     try:
-        with open(MANUAL_VIEWS, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return data if isinstance(data, list) else []
     except Exception:
         return []
 
 
-def save_manual_views(items):
-    os.makedirs(os.path.dirname(MANUAL_VIEWS), exist_ok=True)
-    tmp = MANUAL_VIEWS + ".tmp"
+def _save_list(path, items):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(items, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, MANUAL_VIEWS)
+    os.replace(tmp, path)
+
+
+def load_manual_views():
+    return _load_list(MANUAL_VIEWS)
+
+
+def save_manual_views(items):
+    _save_list(MANUAL_VIEWS, items)
+
+
+def load_dismissed_views():
+    return _load_list(DISMISSED_VIEWS)
+
+
+def save_dismissed_views(items):
+    _save_list(DISMISSED_VIEWS, items)
 
 
 ABSTRACT_CACHE = {}
@@ -44,7 +61,7 @@ def _clean_abstract(text, title=None, limit=180):
     t = re.sub(r"\s+", " ", text or "").strip()
     cut = None
     head = t[:400]
-    for mk in ("核心观点", "基本内容", "主要观点", "摘要", "要点"):
+    for mk in ("核心观点", "基本内容", "主要观点", "摘要", "正文", "要点", "前言"):
         i = head.find(mk)
         if i >= 0:
             cut = i + len(mk)
@@ -69,6 +86,8 @@ def _clean_abstract(text, title=None, limit=180):
             t = t[last.end():]
     t = re.sub(r"\S+@\S+", " ", t)
     t = re.sub(r"（执业[^）]*）", " ", t)
+    t = re.sub(r"（[^）]{0,24}证号[^）]*）", " ", t)
+    t = re.sub(r"投资咨询业务资格[^，。：]{0,30}", " ", t)
     for junk in ("敬请参阅最后一页特别声明", "请务必阅读正文之后的信息披露",
                  "敬请阅读末页", "证券研究报告", "分析师：", "联系人：", "宏观经济组"):
         t = t.replace(junk, " ")
@@ -198,6 +217,50 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(500, {"ok": False, "message": f"保存失败：{e}"})
                 return
             self.send_json(200, {"ok": True, "item": item})
+        elif self.path == "/api/views/dismiss":
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+                body = json.loads(raw or "{}")
+            except Exception as e:
+                self.send_json(400, {"ok": False, "message": f"请求体解析失败：{e}"})
+                return
+            key = (body.get("key") or "").strip()
+            if not key:
+                self.send_json(400, {"ok": False, "message": "缺少 key"})
+                return
+            items = load_dismissed_views()
+            if key not in items:
+                items.append(key)
+                try:
+                    save_dismissed_views(items)
+                except Exception as e:
+                    self.send_json(500, {"ok": False, "message": f"保存失败：{e}"})
+                    return
+            self.send_json(200, {"ok": True, "count": len(items)})
+        else:
+            self.send_json(404, {"ok": False, "message": "Not Found"})
+
+    def do_DELETE(self):
+        if self.path.startswith("/api/manual-views"):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            key = (qs.get("key", [""])[0] or "").strip()
+            if not key:
+                self.send_json(400, {"ok": False, "message": "缺少 key"})
+                return
+            items = load_manual_views()
+            kept = [x for x in items
+                    if f'{x.get("org")}|{x.get("date")}|{x.get("topic")}' != key]
+            if len(kept) == len(items):
+                self.send_json(404, {"ok": False, "message": "未找到该条目"})
+                return
+            try:
+                save_manual_views(kept)
+            except Exception as e:
+                self.send_json(500, {"ok": False, "message": f"保存失败：{e}"})
+                return
+            self.send_json(200, {"ok": True, "count": len(kept)})
         else:
             self.send_json(404, {"ok": False, "message": "Not Found"})
 
@@ -231,7 +294,10 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             force = qs.get("force", ["0"])[0] == "1"
             try:
                 import views_feed
-                items = views_feed.get_views(limit=limit, force=force)
+                raw = views_feed.get_views(limit=max(limit * 4, 40), force=force)
+                skip = {f'{x.get("org")}|{x.get("date")}|{x.get("topic")}' for x in load_manual_views()}
+                skip |= {str(k) for k in load_dismissed_views()}
+                items = [x for x in raw if f'{x.get("org")}|{x.get("date")}|{x.get("topic")}' not in skip][:limit]
                 self.send_json(200, {"ok": True,
                                      "updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                      "count": len(items), "items": items})
