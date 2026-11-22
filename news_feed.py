@@ -16,6 +16,7 @@ UA = {
                   "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
 }
 
+# 宽松关键词已弃用（个股/公司类噪声太多），统一改用下方 MACRO_KEYWORDS 严格名单
 KEYWORDS = [
     "宏观", "GDP", "PMI", "社融", "信贷", "CPI", "PPI", "通胀", "通缩",
     "降准", "降息", "央行", "货币政策", "财政", "专项债", "国债", "国债收益率",
@@ -37,11 +38,12 @@ MACRO_KEYWORDS = [
     "基建", "失业", "美联储", "美债", "国常会", "发改委", "统计局", "财政部",
     "证监会", "国务院", "国新办", "LPR", "金融监管总局", "人民银行", "利率",
     "资本市场", "债券", "期货", "融资保证金", "降费", "交易所", "退市", "IPO",
+    # 具体宏观统计术语（不会引入个股噪声）
+    "国民经济", "工业增加值", "规模以上工业", "社会消费品零售", "消费品零售",
+    "进出口", "贸易差额", "用电量", "发电量", "固定资产投资", "房地产开发投资",
+    "可支配收入", "居民收入", "消费支出", "财政收入", "财政支出", "税收", "海关",
+    "成品油", "能源", "新质生产力", "十五五", "十四五", "高质量发展", "就业",
 ]
-
-
-def _match_macro(text):
-    return any(k in text for k in MACRO_KEYWORDS)
 
 
 EN_KEYWORDS = [
@@ -81,7 +83,7 @@ def _norm_time(s):
 
 
 def _match(text):
-    return any(k in text for k in KEYWORDS)
+    return any(k in text for k in MACRO_KEYWORDS)
 
 
 def fetch_eastmoney():
@@ -171,7 +173,7 @@ def fetch_sina():
     for it in (data.get("result") or {}).get("data") or []:
         title = " ".join((it.get("title") or "").split())
         intro = " ".join((it.get("intro") or it.get("summary") or "").split())
-        if not title or title in seen or not _match_macro(title + " " + intro):
+        if not title or title in seen or not _match(title + " " + intro):
             continue
         seen.add(title)
         try:
