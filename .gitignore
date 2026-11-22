@@ -25,3 +25,6 @@ Thumbs.db
 
 # 个人阅读笔记
 assets/reading_notes.json
+
+# 方法论草稿
+assets/methodology.json

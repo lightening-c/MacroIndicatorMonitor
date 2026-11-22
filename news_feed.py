@@ -4,6 +4,7 @@
 带 5 分钟缓存。所有来源失败时返回上一次缓存。
 """
 import re
+import json
 import time
 from datetime import datetime
 import urllib.request
@@ -201,8 +202,10 @@ def _translate_zh(text):
         zh = "".join(p[0] for p in (raw[0] or []) if p and p[0]).strip()
     except Exception:
         zh = ""
-    _TRANS_CACHE[key] = zh or t
-    return _TRANS_CACHE[key]
+    if zh:
+        _TRANS_CACHE[key] = zh
+        return zh
+    return t
 
 
 def _fetch_rss(urls, source, max_age_days=30):
@@ -239,15 +242,16 @@ def _fetch_rss(urls, source, max_age_days=30):
             raw.append({"title": title, "summary": desc, "dt": dt,
                         "link": link, "source": source})
     raw.sort(key=lambda x: x["dt"], reverse=True)
-    out = []
-    for x in raw[:8]:
+    from concurrent.futures import ThreadPoolExecutor
+    def enrich(x):
         zh_title = _translate_zh(x["title"])
         zh_desc = _translate_zh(x["summary"]) if x["summary"] else ""
-        out.append({"title": zh_title or x["title"],
-                    "summary": zh_desc or x["summary"],
-                    "time": x["dt"].astimezone().strftime("%Y-%m-%d %H:%M:%S"),
-                    "link": x["link"], "source": source})
-    return out
+        return {"title": zh_title or x["title"],
+                "summary": zh_desc or x["summary"],
+                "time": x["dt"].astimezone().strftime("%Y-%m-%d %H:%M:%S"),
+                "link": x["link"], "source": source}
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        return list(ex.map(enrich, raw[:8]))
 
 
 def fetch_pbc():

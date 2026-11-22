@@ -19,6 +19,7 @@ UPDATE_LOG = os.path.join(BASE_DIR, "data", "update_log.json")
 MANUAL_VIEWS = os.path.join(BASE_DIR, "assets", "manual_views.json")
 DISMISSED_VIEWS = os.path.join(BASE_DIR, "assets", "dismissed_views.json")
 READING_NOTES = os.path.join(BASE_DIR, "assets", "reading_notes.json")
+METHODOLOGY = os.path.join(BASE_DIR, "assets", "methodology.json")
 SAVE_LOCK = threading.Lock()
 READING_NOTES_LOCK = threading.Lock()
 
@@ -65,6 +66,24 @@ def load_reading_notes():
 
 def save_reading_notes(items):
     _save_list(READING_NOTES, items)
+
+
+def load_methodology():
+    try:
+        with open(METHODOLOGY, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_methodology(data):
+    os.makedirs(os.path.dirname(METHODOLOGY), exist_ok=True)
+    with SAVE_LOCK:
+        tmp = METHODOLOGY + f".{os.getpid()}.{threading.get_ident()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, METHODOLOGY)
 
 
 ABSTRACT_CACHE = {}
@@ -564,6 +583,24 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(200, {"ok": True, "item": note, "count": len(items)})
             except Exception as e:
                 self.send_json(500, {"ok": False, "message": f"保存失败：{e}"})
+        elif self.path == "/api/methodology":
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+                body = json.loads(raw or "{}")
+            except Exception as e:
+                self.send_json(400, {"ok": False, "message": f"请求体解析失败：{e}"})
+                return
+            doc = {
+                "raw": str(body.get("raw") or "")[:200000],
+                "article": str(body.get("article") or "")[:200000],
+                "updated_at": str(body.get("updated_at") or datetime.now().strftime("%Y-%m-%d %H:%M:%S"))[:20],
+            }
+            try:
+                save_methodology(doc)
+                self.send_json(200, {"ok": True, "data": doc})
+            except Exception as e:
+                self.send_json(500, {"ok": False, "message": f"保存失败：{e}"})
         elif self.path == "/api/views/dismiss":
             try:
                 length = int(self.headers.get("Content-Length") or 0)
@@ -652,6 +689,8 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
                                  "dismissed": load_dismissed_views()})
         elif self.path == "/api/reading-notes":
             self.send_json(200, {"ok": True, "items": load_reading_notes()})
+        elif self.path == "/api/methodology":
+            self.send_json(200, {"ok": True, "data": load_methodology()})
         elif self.path == "/api/corrections":
             items = _load_list(os.path.join(BASE_DIR, "data", "corrections_auto.json"))
             self.send_json(200, {"ok": True, "items": items})
