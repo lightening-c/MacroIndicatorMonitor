@@ -24,6 +24,18 @@ KEYWORDS = [
     "期货", "债券", "利率", "资本市场", "金融", "经济", "消费", "投资",
     "发展", "改革", "政策", "市场", "产业", "企业", "开放", "增长", "稳",
     "价格", "收入", "就业", "贸易", "制造业", "服务业", "进出口",
+    "中国人民银行", "人民银行", "金融监管总局", "银保监会", "银行", "保险",
+]
+
+EN_KEYWORDS = [
+    "china", "chinese", "economy", "economic", "growth", "recession",
+    "inflation", "deflation", "tariff", "tariffs", "trade", "yuan", "renminbi",
+    "pboc", "central bank", "fed", "federal reserve", "interest rate", "rates",
+    "jobs", "unemployment", "gdp", "exports", "imports", "manufacturing", "pmi",
+    "stocks", "bonds", "real estate", "property", "housing", "stimulus",
+    "fiscal", "monetary", "consumer", "retail", "investment", "banking",
+    "oil", "commodities", "prices", "debt", "deficit", "budget", "market",
+    "markets", "slowdown",
 ]
 
 _cache = {"ts": 0.0, "items": []}
@@ -156,6 +168,140 @@ def fetch_csrc():
     return out
 
 
+def _get_json(url, referer=None):
+    import json
+    headers = dict(UA)
+    if referer:
+        headers["Referer"] = referer
+    req = urllib.request.Request(url, headers=headers)
+    return json.loads(urllib.request.urlopen(req, timeout=15).read().decode("utf-8", "ignore"))
+
+
+def _match_en(text):
+    t = (text or "").lower()
+    return any(k in t for k in EN_KEYWORDS)
+
+
+_TRANS_CACHE = {}
+
+
+def _translate_zh(text):
+    t = " ".join((text or "").split())
+    if not t or not re.search(r"[A-Za-z]", t):
+        return t
+    key = t[:300]
+    if key in _TRANS_CACHE:
+        return _TRANS_CACHE[key]
+    import urllib.parse
+    try:
+        u = ("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q="
+             + urllib.parse.quote(t[:500]))
+        req = urllib.request.Request(u, headers={"User-Agent": UA["User-Agent"]})
+        raw = json.loads(urllib.request.urlopen(req, timeout=10).read().decode("utf-8", "ignore"))
+        zh = "".join(p[0] for p in (raw[0] or []) if p and p[0]).strip()
+    except Exception:
+        zh = ""
+    _TRANS_CACHE[key] = zh or t
+    return _TRANS_CACHE[key]
+
+
+def _fetch_rss(urls, source, max_age_days=30):
+    import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+    from datetime import timezone
+    raw, seen = [], set()
+    now = datetime.now(timezone.utc)
+    for u in urls:
+        try:
+            root = ET.fromstring(_get(u))
+        except Exception:
+            continue
+        for it in root.findall(".//item"):
+            title = " ".join((it.findtext("title") or "").split())
+            link = (it.findtext("link") or "").strip()
+            desc = re.sub(r"<[^>]+>", " ", it.findtext("description") or "")
+            desc = " ".join(desc.split())[:160]
+            if not title or not link or title in seen:
+                continue
+            if not _match_en(title + " " + desc):
+                continue
+            try:
+                dt = parsedate_to_datetime(it.findtext("pubDate") or "")
+            except Exception:
+                continue
+            if dt is None:
+                continue
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            if (now - dt).days > max_age_days:
+                continue
+            seen.add(title)
+            raw.append({"title": title, "summary": desc, "dt": dt,
+                        "link": link, "source": source})
+    raw.sort(key=lambda x: x["dt"], reverse=True)
+    out = []
+    for x in raw[:8]:
+        zh_title = _translate_zh(x["title"])
+        zh_desc = _translate_zh(x["summary"]) if x["summary"] else ""
+        out.append({"title": zh_title or x["title"],
+                    "summary": zh_desc or x["summary"],
+                    "time": x["dt"].astimezone().strftime("%Y-%m-%d %H:%M:%S"),
+                    "link": x["link"], "source": source})
+    return out
+
+
+def fetch_pbc():
+    html = _get("http://www.pbc.gov.cn/goutongjiaoliu/113456/113469/index.html")
+    out, seen = [], set()
+    for m in re.finditer(
+            r'<a[^>]+href="(/goutongjiaoliu/113456/113469/(20\d{6})(\d{2})(\d{2})(\d{2})\d+/index\.html)"[^>]*>(.*?)</a>',
+            html, re.S):
+        href, ymd, hh, mm, ss, raw = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6)
+        title = re.sub(r"<[^>]+>", "", raw)
+        title = " ".join(title.split())
+        if not title or title in seen or not _match(title):
+            continue
+        seen.add(title)
+        t = f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:8]} {hh}:{mm}:{ss}"
+        out.append({"title": title, "summary": "", "time": t,
+                    "link": "http://www.pbc.gov.cn" + href, "source": "人民银行"})
+    return out
+
+
+def fetch_nfra():
+    base = "https://www.nfra.gov.cn/cbircweb/DocInfo/SelectDocByItemUUIdsAndChild?itemUUIds="
+    out, seen = [], set()
+    for uuid in ("910201", "910202"):
+        try:
+            data = _get_json(base + uuid, referer="https://www.nfra.gov.cn/")
+        except Exception:
+            continue
+        for it in (data.get("data") or []):
+            title = " ".join((it.get("docTitle") or it.get("docSubtitle") or "").split())
+            if not title or title in seen or not _match(title):
+                continue
+            seen.add(title)
+            doc_id = it.get("docId")
+            link = (f"https://www.nfra.gov.cn/cn/view/pages/ItemDetail.html?docId={doc_id}"
+                    f"&itemId={it.get('itemId') or ''}&generaltype=0")
+            out.append({"title": title, "summary": "",
+                        "time": _norm_time(it.get("publishDate")),
+                        "link": link, "source": "金融监管总局"})
+    return out
+
+
+def fetch_wsj():
+    return _fetch_rss(["https://feeds.a.dj.com/rss/RSSWorldNews.xml",
+                       "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+                       "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml"], "华尔街日报")
+
+
+def fetch_nyt():
+    return _fetch_rss(["https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+                       "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml",
+                       "https://rss.nytimes.com/services/xml/rss/nyt/Economy.xml"], "纽约时报")
+
+
 def get_macro_news(limit=30, force=False):
     now = time.time()
     if not force and _cache["items"] and now - _cache["ts"] < _TTL:
@@ -165,7 +311,8 @@ def get_macro_news(limit=30, force=False):
     # 每个来源设上限，保证官方媒体不会被快讯流淹没
     sources = [(fetch_eastmoney, 12), (fetch_xinhua, 8), (fetch_people, 8),
                (fetch_qstheory, 8), (fetch_csrc, 10),
-               (fetch_stats, 10), (fetch_ndrc, 10), (fetch_gov, 10)]
+               (fetch_stats, 10), (fetch_ndrc, 10), (fetch_gov, 10),
+               (fetch_pbc, 8), (fetch_nfra, 8), (fetch_wsj, 6), (fetch_nyt, 6)]
     for fn, cap in sources:
         try:
             items.extend(fn()[:cap])

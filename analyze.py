@@ -1233,6 +1233,7 @@ def run_analysis():
     ml = compute_merrill_lynch(g_ts, i_ts, growth_ids, inflation_ids)
     results["merrill_lynch"] = {
         **ml,
+        "method_key": "threshold",
         "growth_indicators": growth_ids,
         "inflation_indicators": inflation_ids,
         "growth_latest": [ind_data.get(gid, {}).get("latest_value") for gid in growth_ids],

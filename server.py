@@ -10,6 +10,7 @@ import json
 import re
 import socket
 import threading
+import urllib.request
 from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -17,6 +18,9 @@ PYTHON = sys.executable
 UPDATE_LOG = os.path.join(BASE_DIR, "data", "update_log.json")
 MANUAL_VIEWS = os.path.join(BASE_DIR, "assets", "manual_views.json")
 DISMISSED_VIEWS = os.path.join(BASE_DIR, "assets", "dismissed_views.json")
+READING_NOTES = os.path.join(BASE_DIR, "assets", "reading_notes.json")
+SAVE_LOCK = threading.Lock()
+READING_NOTES_LOCK = threading.Lock()
 
 
 def _load_list(path):
@@ -32,10 +36,11 @@ def _load_list(path):
 
 def _save_list(path, items):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, path)
+    with SAVE_LOCK:
+        tmp = path + f".{os.getpid()}.{threading.get_ident()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(items, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
 
 
 def load_manual_views():
@@ -52,6 +57,14 @@ def load_dismissed_views():
 
 def save_dismissed_views(items):
     _save_list(DISMISSED_VIEWS, items)
+
+
+def load_reading_notes():
+    return _load_list(READING_NOTES)
+
+
+def save_reading_notes(items):
+    _save_list(READING_NOTES, items)
 
 
 ABSTRACT_CACHE = {}
@@ -130,6 +143,7 @@ ARTICLE_HOSTS = (
     "163.com", "sina.com.cn", "hexun.com", "news.cn", "xinhuanet.com",
     "people.com.cn", "qstheory.cn", "stats.gov.cn", "ndrc.gov.cn", "gov.cn",
     "csrc.gov.cn", "yicai.com", "caixin.com", "ce.cn",
+    "pbc.gov.cn", "nfra.gov.cn", "wsj.com", "nytimes.com",
 )
 ARTICLE_CACHE = {}
 ARTICLE_TTL = 600
@@ -342,20 +356,56 @@ def _date_from_url(url):
     return ""
 
 
+class _SafeArticleRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _validate_article_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _fetch_nfra_doc(doc_id):
+    import json as _json
+    api = f"https://www.nfra.gov.cn/cbircweb/DocInfo/SelectByDocId?docId={doc_id}"
+    req = urllib.request.Request(api, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/120 Safari/537.36",
+        "Referer": "https://www.nfra.gov.cn/",
+    })
+    with urllib.request.urlopen(req, timeout=20) as r:
+        data = _json.loads(r.read().decode("utf-8", "ignore"))
+    item = data.get("data") or {}
+    html = item.get("docClob") or ""
+    if not html:
+        raise ValueError("未能获取该文正文")
+    out = _extract_article(html)
+    out["title"] = (item.get("docTitle") or item.get("docSubtitle") or out.get("title") or "")[:160]
+    m = re.search(r"(20\d{2})-(\d{1,2})-(\d{1,2})", item.get("publishDate") or "")
+    out["date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}" if m else ""
+    out["site"] = "www.nfra.gov.cn"
+    if not out.get("text"):
+        raise ValueError("未能从页面提取到正文")
+    return out
+
+
 def fetch_article(url, force=False):
     import time
-    import urllib.request
     url = _validate_article_url(url)
     now = time.time()
     hit = ARTICLE_CACHE.get(url)
     if hit and not force and now - hit[0] < ARTICLE_TTL:
         return hit[1]
+    from urllib.parse import urlparse, parse_qs
+    if _host_of(url).endswith("nfra.gov.cn") and "/ItemDetail.html" in url:
+        doc_id = (parse_qs(urlparse(url).query).get("docId", [""])[0] or "").strip()
+        if doc_id.isdigit():
+            out = _fetch_nfra_doc(doc_id)
+            ARTICLE_CACHE[url] = (now, out)
+            return out
     req = urllib.request.Request(url, headers={
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                       "(KHTML, like Gecko) Chrome/120 Safari/537.36",
         "Accept-Language": "zh-CN,zh;q=0.9",
     })
-    with urllib.request.urlopen(req, timeout=20) as r:
+    with urllib.request.build_opener(_SafeArticleRedirect()).open(req, timeout=20) as r:
         final = r.geturl()
         _validate_article_url(final)
         ctype = (r.headers.get("Content-Type") or "").lower()
@@ -474,6 +524,46 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(500, {"ok": False, "message": f"保存失败：{e}"})
                 return
             self.send_json(200, {"ok": True, "item": item})
+        elif self.path == "/api/reading-notes":
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+                body = json.loads(raw or "{}")
+            except Exception as e:
+                self.send_json(400, {"ok": False, "message": f"请求体解析失败：{e}"})
+                return
+            text = (body.get("raw") or "").strip()
+            if len(text) < 10:
+                self.send_json(400, {"ok": False, "message": "请先粘贴原文内容"})
+                return
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            note = {
+                "id": str(body.get("id") or datetime.now().strftime("%Y%m%d%H%M%S%f")),
+                "kind": str(body.get("kind") or "note")[:20],
+                "category": str(body.get("category") or "")[:20],
+                "created_at": str(body.get("created_at") or now),
+                "updated_at": str(body.get("updated_at") or "")[:20],
+                "source": str(body.get("source") or "手动粘贴")[:200],
+                "article_date": str(body.get("article_date") or "")[:20],
+                "title": str(body.get("title") or "")[:300],
+                "link": str(body.get("link") or "")[:1000],
+                "memo": str(body.get("memo") or "")[:1000],
+                "raw": text[:50000],
+                "summary": [str(x)[:500] for x in (body.get("summary") or []) if str(x).strip()][:10],
+                "stance": str(body.get("stance") or "")[:20],
+                "cause": str(body.get("cause") or "")[:20],
+                "action": str(body.get("action") or "")[:1000],
+                "note": str(body.get("note") or "")[:2000],
+            }
+            try:
+                with READING_NOTES_LOCK:
+                    items = load_reading_notes()
+                    items = [note] + [x for x in items if x.get("id") != note["id"]]
+                    items = items[:500]
+                    save_reading_notes(items)
+                self.send_json(200, {"ok": True, "item": note, "count": len(items)})
+            except Exception as e:
+                self.send_json(500, {"ok": False, "message": f"保存失败：{e}"})
         elif self.path == "/api/views/dismiss":
             try:
                 length = int(self.headers.get("Content-Length") or 0)
@@ -499,7 +589,40 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(404, {"ok": False, "message": "Not Found"})
 
     def do_DELETE(self):
-        if self.path.startswith("/api/manual-views"):
+        if self.path.startswith("/api/reading-notes"):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            nid = (qs.get("id", [""])[0] or "").strip()
+            if not nid:
+                self.send_json(400, {"ok": False, "message": "缺少 id"})
+                return
+            with READING_NOTES_LOCK:
+                items = load_reading_notes()
+                kept = [x for x in items if str(x.get("id")) != nid]
+                if len(kept) == len(items):
+                    self.send_json(404, {"ok": False, "message": "未找到该笔记"})
+                    return
+                try:
+                    save_reading_notes(kept)
+                except Exception as e:
+                    self.send_json(500, {"ok": False, "message": f"保存失败：{e}"})
+                    return
+            self.send_json(200, {"ok": True, "count": len(kept)})
+        elif self.path.startswith("/api/views/dismiss"):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
+            key = (qs.get("key", [""])[0] or "").strip()
+            if not key:
+                self.send_json(400, {"ok": False, "message": "缺少 key"})
+                return
+            items = [str(k) for k in load_dismissed_views() if str(k) != key]
+            try:
+                save_dismissed_views(items)
+            except Exception as e:
+                self.send_json(500, {"ok": False, "message": f"保存失败：{e}"})
+                return
+            self.send_json(200, {"ok": True, "count": len(items)})
+        elif self.path.startswith("/api/manual-views"):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
             key = (qs.get("key", [""])[0] or "").strip()
@@ -527,6 +650,8 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         elif self.path == "/api/manual-views":
             self.send_json(200, {"ok": True, "items": load_manual_views(),
                                  "dismissed": load_dismissed_views()})
+        elif self.path == "/api/reading-notes":
+            self.send_json(200, {"ok": True, "items": load_reading_notes()})
         elif self.path == "/api/corrections":
             items = _load_list(os.path.join(BASE_DIR, "data", "corrections_auto.json"))
             self.send_json(200, {"ok": True, "items": items})
@@ -544,7 +669,7 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             except ImportError:
                 self.send_json(500, {"ok": False, "message": "缺少 pypdf，请先安装"})
             except Exception as e:
-                self.send_json(500, {"ok": False, "message": f"抓取失败：{e}"})
+                self.send_json(200, {"ok": False, "message": f"抓取失败：{e}"})
         elif self.path.startswith("/api/article"):
             from urllib.parse import urlparse, parse_qs
             qs = parse_qs(urlparse(self.path).query)
