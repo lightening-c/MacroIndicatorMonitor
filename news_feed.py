@@ -29,6 +29,21 @@ KEYWORDS = [
     "中国人民银行", "人民银行", "金融监管总局", "银保监会", "银行", "保险",
 ]
 
+# 严格宏观关键词：新浪财经滚动里个股/公司新闻太多，用更聚焦宏观的名单过滤
+MACRO_KEYWORDS = [
+    "宏观", "GDP", "PMI", "社融", "信贷", "CPI", "PPI", "通胀", "通缩",
+    "降准", "降息", "央行", "货币政策", "财政", "专项债", "国债", "汇率",
+    "人民币", "出口", "进口", "外贸", "关税", "房地产", "楼市", "地产",
+    "基建", "失业", "美联储", "美债", "国常会", "发改委", "统计局", "财政部",
+    "证监会", "国务院", "国新办", "LPR", "金融监管总局", "人民银行", "利率",
+    "资本市场", "债券", "期货", "融资保证金", "降费", "交易所", "退市", "IPO",
+]
+
+
+def _match_macro(text):
+    return any(k in text for k in MACRO_KEYWORDS)
+
+
 EN_KEYWORDS = [
     "china", "chinese", "economy", "economic", "growth", "recession",
     "inflation", "deflation", "tariff", "tariffs", "trade", "yuan", "renminbi",
@@ -156,7 +171,7 @@ def fetch_sina():
     for it in (data.get("result") or {}).get("data") or []:
         title = " ".join((it.get("title") or "").split())
         intro = " ".join((it.get("intro") or it.get("summary") or "").split())
-        if not title or title in seen or not _match(title + " " + intro):
+        if not title or title in seen or not _match_macro(title + " " + intro):
             continue
         seen.add(title)
         try:
