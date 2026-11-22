@@ -1,6 +1,7 @@
 """
 宏观数据跟踪 — 实时宏观快讯
-聚合：东方财富全球快讯、新华网、人民日报(人民网)、求是网、证监会
+聚合：东方财富全球快讯、新华网、人民日报(人民网)、求是网、证监会、国家统计局、
+发改委、国务院、新浪财经、人民银行、金融监管总局、华尔街日报、纽约时报
 带 5 分钟缓存。所有来源失败时返回上一次缓存。
 """
 import re
@@ -145,6 +146,25 @@ def fetch_gov():
         out.append({"title": title, "summary": (it.get("summary") or "")[:160],
                     "time": _norm_time((it.get("pubtimeStr") or "").replace(".", "-")),
                     "link": it.get("url") or "", "source": "国务院"})
+    return out
+
+
+def fetch_sina():
+    url = "https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2516&num=30&page=1"
+    data = _get_json(url)
+    out, seen = [], set()
+    for it in (data.get("result") or {}).get("data") or []:
+        title = " ".join((it.get("title") or "").split())
+        intro = " ".join((it.get("intro") or it.get("summary") or "").split())
+        if not title or title in seen or not _match(title + " " + intro):
+            continue
+        seen.add(title)
+        try:
+            t = datetime.fromtimestamp(int(it.get("ctime") or 0)).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            t = ""
+        out.append({"title": title, "summary": intro[:160], "time": t,
+                    "link": it.get("url") or "", "source": "新浪财经"})
     return out
 
 
@@ -316,7 +336,8 @@ def get_macro_news(limit=30, force=False):
     sources = [(fetch_eastmoney, 12), (fetch_xinhua, 8), (fetch_people, 8),
                (fetch_qstheory, 8), (fetch_csrc, 10),
                (fetch_stats, 10), (fetch_ndrc, 10), (fetch_gov, 10),
-               (fetch_pbc, 8), (fetch_nfra, 8), (fetch_wsj, 6), (fetch_nyt, 6)]
+               (fetch_sina, 8), (fetch_pbc, 8), (fetch_nfra, 8),
+               (fetch_wsj, 6), (fetch_nyt, 6)]
     for fn, cap in sources:
         try:
             items.extend(fn()[:cap])
