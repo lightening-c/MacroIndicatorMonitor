@@ -185,6 +185,29 @@ def fetch_sina():
     return out
 
 
+def fetch_cls():
+    import akshare as ak
+    df = ak.stock_news_global_cls()
+    out, seen = [], set()
+    for _, row in df.iterrows():
+        title = " ".join(str(row.get("标题") or "").split())
+        content = " ".join(str(row.get("内容") or "").split())
+        if not title:
+            # 财联社电报标题常为空，从正文去电头提取
+            title = re.sub(r"^财联社(?:20\d{2}年)?\d{1,2}月\d{1,2}日电[，,]?\s*", "", content)
+            title = title.split("。")[0][:60]
+        title = title.strip()
+        if not title or title in seen or not _match(title + " " + content):
+            continue
+        seen.add(title)
+        d = str(row.get("发布日期") or "").strip()
+        t = str(row.get("发布时间") or "").strip()
+        ts = (d + " " + t).strip() if d else t
+        out.append({"title": title, "summary": content[:160],
+                    "time": _norm_time(ts), "link": "", "source": "财联社"})
+    return out
+
+
 def fetch_csrc():
     html = _get("https://www.csrc.gov.cn/csrc/index.shtml")
     out, seen = [], set()
@@ -353,7 +376,7 @@ def get_macro_news(limit=30, force=False):
     sources = [(fetch_eastmoney, 12), (fetch_xinhua, 8), (fetch_people, 8),
                (fetch_qstheory, 8), (fetch_csrc, 10),
                (fetch_stats, 10), (fetch_ndrc, 10), (fetch_gov, 10),
-               (fetch_sina, 8), (fetch_pbc, 8), (fetch_nfra, 8),
+               (fetch_sina, 8), (fetch_cls, 8), (fetch_pbc, 8), (fetch_nfra, 8),
                (fetch_wsj, 6), (fetch_nyt, 6)]
     for fn, cap in sources:
         try:

@@ -737,7 +737,7 @@ h+=cmSec('二、人工记录如何产生',cmList(['在「市场机构观点」�
 h+=cmSec('三、如何使用','<p class="cm-p">修正记录是模型的可审计轨迹：当结论与历史不一致时，先查这里有没有口径变化；对外解释数据时，也可据此说明调整原因。</p>');
 return h}
 function cmNewsDetail(D){var n=document.querySelectorAll('#newsList .news-item').length;var h=cmSec('当前状态','<p class="cm-p">当前列表显示 '+(n||0)+' 条快讯。</p>');
-h+=cmSec('一、来源与筛选',cmList(['来源包括东方财富、新华网、人民日报、求是、证监会、国家统计局、发改委、国务院、新浪财经、人民银行、金融监管总局、华尔街日报、纽约时报。','按宏观关键词筛选，并对各来源限量，避免单一来源刷屏；结果缓存 5 分钟，点击「刷新」可强制更新。','标题可点开原文；点「内容摘要」可自动提炼要点并与面板对照，内容以原始发布为准。']));
+h+=cmSec('一、来源与筛选',cmList(['来源包括东方财富、新华网、人民日报、求是、证监会、国家统计局、发改委、国务院、新浪财经、财联社、人民银行、金融监管总局、华尔街日报、纽约时报。','按宏观关键词筛选，并对各来源限量，避免单一来源刷屏；结果缓存 5 分钟，点击「刷新」可强制更新。','标题可点开原文；点「内容摘要」可自动提炼要点并与面板对照，内容以原始发布为准。']));
 h+=cmSec('二、如何与面板配合',cmList(['快讯用于捕捉政策与数据的时点事件，面板反映的是统计数据的趋势，两者时间尺度不同。','看到与面板指标相关的快讯时，可到「指标解读」查看该指标的走势与机构观点，再判断是否需要调整对周期的判断。','快讯不代表数据已经更新；数据是否入库以「数据发布日历」和指标卡的最新日期为准。']));
 h+=cmSec('三、提示','<p class="cm-p">实时快讯需要本地服务支持，通过 http://localhost:4321 打开时可用；以文件方式打开时无法加载。</p>');
 return h}
@@ -933,7 +933,7 @@ c1.setOption({backgroundColor:'transparent',tooltip:{trigger:'axis'},legend:{dat
 var el2=document.getElementById('indZChart');if(charts.indZ)charts.indZ.dispose();
 if(el2){var win=Math.min(isDaily?60:60,Math.max(12,Math.floor(vals.length/2)));var zs=vals.map(function(_,i){if(i<win-1)return null;var seg=vals.slice(i-win+1,i+1);var m=seg.reduce(function(a,x){return a+x},0)/seg.length;var sd=Math.sqrt(seg.reduce(function(a,x){return a+(x-m)*(x-m)},0)/seg.length)||1;return +((vals[i]-m)/sd).toFixed(3)});
 var c2=echarts.init(el2);charts.indZ=c2;c2.setOption({backgroundColor:'transparent',tooltip:{trigger:'axis'},grid:{left:12,right:18,top:26,bottom:22,containLabel:true},xAxis:{type:'category',data:dates,axisLabel:{show:false}},yAxis:{type:'value',name:'滚动 z',nameTextStyle:{color:cssVar('--text-dim')||'#64748b'},axisLabel:{color:cssVar('--text-dim')||'#64748b',fontSize:11},splitLine:{lineStyle:{color:cssVar('--line-faint')||'#eef2f7'}}},series:[{type:'line',data:zs,showSymbol:false,smooth:true,lineStyle:{color:'#7c3aed',width:1.8},markLine:{silent:true,symbol:'none',lineStyle:{color:'#94a3b8',type:'dashed',width:1},data:[{yAxis:2},{yAxis:0},{yAxis:-2}]}}]})}}
-function buildNewsCard(){return '<div class="cm-card full"><h3><span>实时宏观快讯</span><span class="cm-h-actions"><button id="newsRefresh" class="mv-btn">刷新</button>'+cmBtn('news')+'</span></h3><div id="newsList"><div class="mv-note">加载中…</div></div><div class="mv-note" style="margin-top:8px;">来源：东方财富、新华网、人民日报、求是、证监会、国家统计局、发改委、国务院、人民银行、金融监管总局、华尔街日报、纽约时报；按宏观关键词筛选，各来源限量以保证均衡，缓存 5 分钟；标题可点开原文，点「内容摘要」自动提炼要点并与面板对照。</div></div>'}
+function buildNewsCard(){return '<div class="cm-card full"><h3><span>实时宏观快讯</span><span class="cm-h-actions"><button id="newsRefresh" class="mv-btn">刷新</button>'+cmBtn('news')+'</span></h3><div id="newsList"><div class="mv-note">加载中…</div></div><div class="mv-note" style="margin-top:8px;">来源：东方财富、新华网、人民日报、求是、证监会、国家统计局、发改委、国务院、新浪财经、财联社、人民银行、金融监管总局、华尔街日报、纽约时报；按宏观关键词筛选，各来源限量以保证均衡，缓存 5 分钟；标题可点开原文，点「内容摘要」自动提炼要点并与面板对照。</div></div>'}
 var _newsMoved={};try{_newsMoved=JSON.parse(localStorage.getItem('newsMoved')||'{}')||{}}catch(e){_newsMoved={}}
 function newsKey(it){return String((it&&(it.link||it.title))||'')}
 function markNewsMoved(it){var k=newsKey(it);if(!k)return;_newsMoved[k]=1;try{localStorage.setItem('newsMoved',JSON.stringify(_newsMoved))}catch(e){}}
