@@ -208,6 +208,10 @@ def fetch_cls():
     return out
 
 
+def fetch_ce():
+    return _scrape_links("http://finance.ce.cn/", r"t20\d{6}", "经济日报")
+
+
 def fetch_csrc():
     html = _get("https://www.csrc.gov.cn/csrc/index.shtml")
     out, seen = [], set()
@@ -376,7 +380,7 @@ def get_macro_news(limit=30, force=False):
     sources = [(fetch_eastmoney, 12), (fetch_xinhua, 8), (fetch_people, 8),
                (fetch_qstheory, 8), (fetch_csrc, 10),
                (fetch_stats, 10), (fetch_ndrc, 10), (fetch_gov, 10),
-               (fetch_sina, 8), (fetch_cls, 8), (fetch_pbc, 8), (fetch_nfra, 8),
+               (fetch_sina, 8), (fetch_cls, 8), (fetch_ce, 8), (fetch_pbc, 8), (fetch_nfra, 8),
                (fetch_wsj, 6), (fetch_nyt, 6)]
     for fn, cap in sources:
         try:
